@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron1
+spec:
+  schedule: "0 1 * * *"       
+  concurrencyPolicy: "Replace"  
+  startingDeadlineSeconds: 200  
+  suspend: false                
+  successfulJobsHistoryLimit: 3 
+  failedJobsHistoryLimit: 1     
+  jobTemplate:                  
+    spec:
+      template:
+        metadata:
+          labels:               
+            parent: "cronjob1"
+        spec:
+          containers:
+          - name: postgres
+            image: docker.io/centos/postgresql-12-centos8
+            command: ["/bin/sh"]
+            args: ["-c","PGPASSWORD='{{ .Values.dbpassword }}' pg_dump -h '{{ .Values.dbhost }}.{{ .Values.project }}.svc.cluster.local' -d {{ .Values.dbname }} -p 5432 -U {{ .Values.dbuser }} --exclude-table=pgbench_history --exclude-table=pgbench_tellers --exclude-table=pgbench_branches --exclude-table=pgbench_accounts > /mnt/dbdump_$(date +%d-%m-%y).sql"]
+            volumeMounts:
+            - mountPath: /mnt
+              name: persistantfs
+          restartPolicy: OnFailure 
+          volumes: 
+          - name: persistantfs
+            persistentVolumeClaim:
+              claimName: {{ .Values.pvcname }}

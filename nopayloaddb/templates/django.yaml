@@ -1,0 +1,91 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: npdbhelm
+  labels:
+    app: django
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: '0.2.4'
+      from:
+        kind: DockerImage
+        name: 'docker.io/ruslan33/npdbhelm:0.2.4'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django
+  labels:
+    app: django
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: django
+  template:
+    metadata:
+      labels:
+        app: django
+    spec:
+      containers:
+      - name: django
+        image: ruslan33/npdbhelm:0.2.4
+        imagePullPolicy: "Always"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        #command:
+        #- "/bin/rm"
+        #args:
+        #- "-Rf"
+        #- "/mnt/curren*"
+        #- "{{ .Values.django_logpath }}"
+        env:
+        - name: POSTGRES_DB
+          value: postgresql #from pgbouncer.ini
+        - name: POSTGRES_USER
+          value: {{ .Values.dbuser }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.dbpassword }}
+        - name: POSTGRES_HOST
+          value: pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_PORT
+          value: "6432"
+        - name: DJANGO_LOGPATH
+          value: {{ .Values.django_logpath }}
+        volumeMounts:
+        - mountPath: /mnt
+          name: persistentfs
+        - name: run #to avoid permissions denied error
+          mountPath: /var/run
+        readinessProbe:
+          initialDelaySeconds: 1
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 1
+          exec:
+            command: ["/bin/bash","-c","mkdir -p {{ .Values.django_logpath }} && chmod 777 {{ .Values.django_logpath }}"]
+      volumes:
+        - name: persistentfs
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvcname }}
+        - name: run
+          emptyDir: {}        
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "django"
+spec:
+  selector:
+    app: "django"
+  ports:
+    - name: "tcp-8000"
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

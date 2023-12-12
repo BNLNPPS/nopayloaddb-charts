@@ -1,0 +1,15 @@
+#OKD project
+domain: domain
+project: project_name
+appname: application_name
+#DB parameters
+dbhost: dbhost
+dbname: dbname
+dbuser: dbuser
+dbpassword: dbpassword
+#django
+django_logpath: /mnt/current_logfiles
+nginx_logpath: /mnt/current_logfiles
+pgbouncer_logpath: /mnt/current_logfiles
+#PersistentVolumeClaims
+pvcname: pvcname
