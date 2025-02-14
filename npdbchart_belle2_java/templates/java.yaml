@@ -1,0 +1,100 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: b2s-okd
+  labels:
+    app: java
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.java_docker_image_tag }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.java_docker_image }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java
+  labels:
+    app: java
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java
+  template:
+    metadata:
+      labels:
+        app: java
+    spec:
+      containers:
+      - name: java
+        image: {{ .Values.java_docker_image }}
+        imagePullPolicy: "Always"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        #- containerPort: 8081
+        #  protocol: TCP
+        env:
+        - name: PGSERVER
+          value: pgbouncer.{{ .Values.project }}.svc.cluster.local
+          #value: blcdbtest-db01.sdcc.bnl.gov
+          #value: postgresql.test-cdb.svc.cluster.local
+        - name: PGPORT
+          value: "6432"
+        - name: B2S_APP_LOGGING_LEVEL
+          value: INFO
+        - name: B2S_SERVER_LOGGING_LEVEL
+          value: FINEST
+        - name: B2S_HAS_EXTERNAL_SERVICE_CACHE
+          #value: "true"
+          value: "false"
+        - name: B2S_RESOURCE_CACHE_ENABLED
+          value: "false"
+        - name: B2S_JWT_AUTH
+          value: "true"
+        - name:  B2S_AUTH_SECRET
+          value: {{ .Values.jwt_secret }}
+        - name: B2S_SERVICES_PORT
+          value: "8080"
+        - name: B2S_SWAGGER_HOST_PORT
+          value: "8081" 
+        - name: B2S_QUERY_CACHE_MAX_SIZE
+          value: "100"
+        #- name: POSTGRES_PASSWORD
+        #  value: {{ .Values.dbpassword }}
+        #- name: POSTGRES_HOST
+        #  value: pgbouncer.{{ .Values.project }}.svc.cluster.local
+        #- name: POSTGRES_PORT
+        #  value: "6432"
+        - name: B2S_PAYLOAD_SERVER_ROOT_PATH
+          value: "/"
+        volumeMounts:
+        - mountPath: /mnt
+          name: payloadfs
+        resources:
+          requests:
+            memory: "10Gi"
+          limits:
+            memory: "15Gi"
+      volumes:
+        - name: payloadfs
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc_payload_server}}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "java"
+spec:
+  selector:
+    app: "java"
+  ports:
+    - name: "tcp-8080"
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

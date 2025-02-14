@@ -1,0 +1,21 @@
+#OKD project
+okdcluster: okd_cluster_base_url 
+project: project_name
+appname: app_name
+appname_files: app_name_payload_server
+#PVC
+pvc_payload_server: pvc_name 
+#DB parameters
+dbhost: hostname
+dbname: dbname
+dbuser_app: username
+dbuser_adm: username
+dbpassword: password
+#Docker
+java_docker_image: docker_image
+pgbouncer_docker_image: docker_image
+java_docker_image_tag: tag
+pgbouncer_docker_image_tag: tag
+
+#JWT
+jwt_secret: secret

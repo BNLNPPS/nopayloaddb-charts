@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-files-conf
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log /var/log/nginx/access.log main;
+        error_log /var/log/nginx/error.log warn;
+
+        server {
+            listen 8080;  # Listening on port 8080
+            server_name localhost;
+
+            location / {
+                root /usr/share/nginx/html;  # Serve files from this directory
+                #index index.html index.htm;  # Default file to serve if it exists
+                #autoindex off;  # Enables directory listing if index.html is missing
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-files
+  labels:
+    app: nginx-files
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-files
+  template:
+    metadata:
+      labels:
+        app: nginx-files
+    spec:
+      volumes:
+        - name: files-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc_payload_server}}
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-files-conf
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-pid
+          emptyDir: {}
+      containers:
+        - name: nginx
+          image: 'nginx:1.23.1'
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: files-volume
+              mountPath: /usr/share/nginx/html
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-pid
+              mountPath: /var/run
+          imagePullPolicy: IfNotPresent
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "nginx-files"
+spec:
+  selector:
+    app: "nginx-files"
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: nginx-files
+  labels:
+    app: nginx-files
+spec:
+  host: {{ .Values.appname_files }}.apps.{{ .Values.okdcluster }}
+  to:
+    kind: Service
+    name: nginx-files
+  port:
+    targetPort: http
+#  tls:
+#    termination: edge

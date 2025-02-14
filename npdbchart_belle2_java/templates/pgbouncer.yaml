@@ -1,0 +1,98 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: pgbouncer-helm
+  labels:
+    app: pgbouncer
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.pgbouncer_docker_image_tag }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.pgbouncer_docker_image }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-conf
+data:
+  pgbouncer.ini: |
+    [databases]
+    conditions = host={{ .Values.dbhost }} port=5432 dbname={{ .Values.dbname }}
+    [pgbouncer]
+    ignore_startup_parameters = extra_float_digits
+    listen_addr = *
+    listen_port = 6432
+    logfile = /var/log/pgbouncer/pgbouncer.log
+    pidfile = /var/run/pgbouncer/pgbouncer.pid
+    auth_type = md5
+    auth_file = /etc/pgbouncer/userlist.txt
+    #auth_user = {{ .Values.dbuser }}
+    unix_socket_dir = /var/run/pgbouncer
+    pool_mode = session
+    max_client_conn = 10000
+    ;;default_pool_size = 20
+  userlist.txt: |
+    {{ .Values.dbuser_app }} {{ .Values.dbpassword | quote }}
+    {{ .Values.dbuser_adm }} {{ .Values.dbpassword | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  labels:
+    app: pgbouncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - os-worker03.sdcc.bnl.gov
+      containers:
+      - name: pgbouncer
+        image: {{ .Values.pgbouncer_docker_image }}
+        ports:
+        - containerPort: 6432
+        volumeMounts:
+        - name: pgbouncer-conf
+          mountPath: /etc/pgbouncer # mount pgbouncer-conf volumn to /etc/pgbouncer
+          readOnly: true
+      volumes:
+      - name: pgbouncer-conf
+        configMap:
+          name: pgbouncer-conf # place ConfigMap `pgbouncer-conf` on /etc/pgbouncer
+          items:
+           - key: pgbouncer.ini
+             path: pgbouncer.ini
+           - key: userlist.txt
+             path: userlist.txt
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: pgbouncer
+spec:
+  selector:
+    app: pgbouncer
+  ports:
+    - name: "6432-tcp"
+      protocol: TCP
+      port: 6432
+      targetPort: 6432
+  type: ClusterIP
+  #type: LoadBalancer
