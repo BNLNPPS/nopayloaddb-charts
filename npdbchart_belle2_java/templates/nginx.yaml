@@ -27,6 +27,8 @@ data:
             # Add Cache-Control header to the response
             add_header Cache-Control {{ .Values.nginx_cache_control_value }};
 
+            add_header X-Cache-Status $upstream_cache_status;
+
             proxy_cache my_cache;
             proxy_cache_valid 200 302 60s; # Cache successful responses for 60 seconds
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
