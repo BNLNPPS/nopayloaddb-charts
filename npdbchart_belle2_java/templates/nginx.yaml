@@ -11,9 +11,34 @@ data:
     error_log /var/log/nginx/error.log debug;
     access_log /var/log/nginx/access.log;
 
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=200m inactive=60s use_temp_path=off;
+
     server {
 
         listen 8080;
+
+        location /b2s/rest/v2/globalTagStatus {
+
+            proxy_pass http://java;
+            proxy_redirect off;
+
+            # REMOVE Cache-Control from backend
+            proxy_hide_header Cache-Control;
+            # Add Cache-Control header to the response
+            add_header Cache-Control {{ .Values.nginx_cache_control_value }};
+
+            proxy_cache my_cache;
+            proxy_cache_valid 200 302 60s; # Cache successful responses for 60 seconds
+            proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+            proxy_ignore_headers "Cache-Control" "Expires";
+
+            proxy_read_timeout 1800;
+            proxy_connect_timeout 1800;
+            proxy_send_timeout 1800;
+            send_timeout 1800;
+            fastcgi_read_timeout 1800;
+        }
+
 
         location / {
             proxy_pass http://java;
