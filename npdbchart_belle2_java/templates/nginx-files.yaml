@@ -111,6 +111,7 @@ spec:
           volumeMounts:
             - name: files-volume
               mountPath: /usr/share/nginx/html
+              subPath: {{ .Values.subPath }}
             - name: nginx-config-volume
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf

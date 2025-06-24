@@ -89,6 +89,7 @@ spec:
         volumeMounts:
         - mountPath: /srv
           name: payloadfs
+          subPath: {{ .Values.subPath }}
         resources:
           requests:
             memory: "10Gi"

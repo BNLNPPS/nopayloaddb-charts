@@ -7,6 +7,7 @@ appname_files: app_name_payload_server
 payload_server_alias: payload_server_alias_name
 #PVC
 pvc_payload_server: pvc_name 
+subPath: dir1/dir2
 #DB parameters
 dbhost: hostname
 dbname: dbname
