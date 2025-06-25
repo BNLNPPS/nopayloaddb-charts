@@ -37,8 +37,9 @@ data:
     unix_socket_dir = /var/run/pgbouncer
     pool_mode = session
     max_client_conn = 10000
-    ;;default_pool_size = 20
-  userlist.txt: |
+    default_pool_size = 500
+    reserve_pool_size = 500
+    reserve_pool_timeout = 5  userlist.txt: |
     {{ .Values.dbuser_app | quote }} {{ .Values.dbpassword | quote }}
     {{ .Values.dbuser_adm | quote }} {{ .Values.dbpassword | quote }}
 ---
