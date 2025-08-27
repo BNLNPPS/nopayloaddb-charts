@@ -62,14 +62,14 @@ spec:
           periodSeconds: 30
           failureThreshold: 1
           timeoutSeconds: 30
-        livenessProbe:
-          httpGet:
-            path: /api/cdb_rest/globalTags
-            port: 8000
-          initialDelaySeconds: 60
-          periodSeconds: 1200      # every 20 minutes
-          failureThreshold: 1     # restart pod after 1 failure
-          timeoutSeconds: 30
+        #livenessProbe:
+        #  httpGet:
+        #    path: /api/cdb_rest/globalTags
+        #    port: 8000
+        #  initialDelaySeconds: 60
+        #  periodSeconds: 1200      # every 20 minutes
+        #  failureThreshold: 1     # restart pod after 1 failure
+        #  timeoutSeconds: 30
         env:
         #Default
         - name: POSTGRES_HOST_W

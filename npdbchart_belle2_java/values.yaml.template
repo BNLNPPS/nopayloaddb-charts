@@ -21,4 +21,4 @@ pgbouncer_docker_image: docker_image
 #JWT
 jwt_secret: secret
 #NGINX Cache-Control
-nginx_cache_control_value: max-age=60
+nginx_cache_control_value: max-age=3600

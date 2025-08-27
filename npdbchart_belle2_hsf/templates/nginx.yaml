@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  nginx.conf: |
+    upstream django {
+        server django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
+    }
+
+    error_log {{ .Values.nginx_logpath }}/placeholder.error.log debug;
+    access_log {{ .Values.nginx_logpath }}/placeholder.access.log;
+
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=200m inactive=1h use_temp_path=off;
+
+    server {
+
+        listen 8080;
+
+        server_name = $hostname;
+
+        location / {
+            proxy_pass http://django;
+            proxy_redirect off;
+        }
+
+    }
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.nginx_docker_image | splitList ":" | last | quote }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.nginx_docker_image }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/nginx:{{ .Values.nginx_docker_image | splitList ":" | last }}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: confd
+          mountPath: /etc/nginx/conf.d # mount nginx-conf volumn to /etc/nginx/conf.d
+          #readOnly: true
+        - name: log
+          mountPath: /var/log/nginx
+        - name: cache #to avoid permissions denied error
+          mountPath: /var/cache/nginx
+        - name: run #to avoid permissions denied error
+          mountPath: /var/run
+        #- mountPath: /mnt
+        #  name: persistantfs
+        - name: nginx-conf
+          mountPath: /media
+ 
+        readinessProbe:
+          initialDelaySeconds: 1
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 1
+          exec:
+            command: ["/bin/bash","-c","cp /media/nginx.conf /etc/nginx/conf.d/ && sed -i \"s/placeholder/$HOSTNAME/g\" /etc/nginx/conf.d/nginx.conf && nginx -s reload "]
+
+
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf # place ConfigMap `nginx-conf` on /etc/nginx/conf.d
+          items:
+           - key: nginx.conf
+             path: nginx.conf
+      - name: log
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      - name: run
+        emptyDir: {}
+      - name: confd
+        emptyDir: {}
+      #- name: persistantfs
+      #  persistentVolumeClaim:
+      #    claimName: {{ .Values.pvcname }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "nginx"
+spec:
+  selector:
+    app: "nginx"
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  host: {{ .Values.appname }}.apps.{{ .Values.okdserver }}
+  to:
+    kind: Service
+    name: nginx
+  port:
+    targetPort: http

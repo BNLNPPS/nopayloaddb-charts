@@ -1,18 +1,33 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: npdbhelm
+  labels:
+    app: django
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.django_docker_image | splitList ":" | last | quote }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.django_docker_image }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: django-test
+  name: django
   labels:
-    app: django-test
+    app: django
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
-      app: django-test
+      app: django
   template:
     metadata:
       labels:
-        app: django-test
+        app: django
     spec:
       affinity:
         nodeAffinity:
@@ -20,14 +35,16 @@ spec:
             nodeSelectorTerms:
             - matchExpressions:
               - key: kubernetes.io/hostname
-                operator: In
+                operator: NotIn
                 values:
                 - os-worker00.sdcc.bnl.gov
-                #- os-worker01.sdcc.bnl.gov
+                - os-worker01.sdcc.bnl.gov
+                - os-worker09.sdcc.bnl.gov
+                - os-worker06.sdcc.bnl.gov
       #securityContext:
       #  fsGroup: 1000
       containers:
-      - name: django-test
+      - name: django
         image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/npdbhelm:{{ .Values.django_docker_image | splitList ":" | last }}"
         imagePullPolicy: "IfNotPresent"
         ports:
@@ -47,18 +64,19 @@ spec:
           periodSeconds: 30
           failureThreshold: 1
           timeoutSeconds: 30
-        livenessProbe:
-          httpGet:
-            path: /api/cdb_rest/globalTags
-            port: 8000
-          initialDelaySeconds: 60
-          periodSeconds: 120      # every 15 minutes
-          failureThreshold: 1     # restart pod after 1 failure
-          timeoutSeconds: 30
+        #livenessProbe:
+        #  httpGet:
+        #    path: /api/cdb_rest/globalTags
+        #    port: 8000
+        #  initialDelaySeconds: 60
+        #  periodSeconds: 120      # every 15 minutes
+        #  failureThreshold: 1     # restart pod after 1 failure
+        #  timeoutSeconds: 30
         env:
         #Default
         - name: POSTGRES_HOST_W
-          value: {{ .Values.dbhost_w }}
+          #value: {{ .Values.dbhost_w }}
+          value: pgbouncer.{{ .Values.project }}.svc.cluster.local
         - name: POSTGRES_DB_W
           value: {{ .Values.dbname_w }}
         - name: POSTGRES_USER_W
@@ -66,10 +84,11 @@ spec:
         - name: POSTGRES_PASSWORD_W
           value: {{ .Values.dbpassword_w }}
         - name: POSTGRES_PORT_W
-          value: "5432"
+          value: "6432"
         #Read1
         - name: POSTGRES_HOST_R1
-          value: {{ .Values.dbhost_r1 }}
+          #value: {{ .Values.dbhost_r1 }}
+          value: pgbouncer.{{ .Values.project }}.svc.cluster.local
         - name: POSTGRES_DB_R1
           value: {{ .Values.dbname_r1 }}
         - name: POSTGRES_USER_R1
@@ -77,10 +96,11 @@ spec:
         - name: POSTGRES_PASSWORD_R1
           value: {{ .Values.dbpassword_r1 }}
         - name: POSTGRES_PORT_R1
-          value: "5432"
+          value: "6432"
         #Read2
         - name: POSTGRES_HOST_R2
-          value: {{ .Values.dbhost_r2 }}
+          #value: {{ .Values.dbhost_r2 }}
+          value: pgbouncer.{{ .Values.project }}.svc.cluster.local
         - name: POSTGRES_DB_R2
           value: {{ .Values.dbname_r2 }}
         - name: POSTGRES_USER_R2
@@ -88,26 +108,40 @@ spec:
         - name: POSTGRES_PASSWORD_R2
           value: {{ .Values.dbpassword_r2 }}
         - name: POSTGRES_PORT_R2
-          value: "5432"
-
-        - name: DJANGO_LOGPATH
-          value: {{ .Values.django_logpath }}
+          value: "6432"
+       
+        #- name: DJANGO_LOGPATH
+        #  value: {{ .Values.django_logpath }}
         volumeMounts:
-        - mountPath: /mnt
-          name: persistentfs
+        #- mountPath: /mnt
+        #  name: persistentfs
         - name: run #to avoid permissions denied error
           mountPath: /var/run
-        readinessProbe:
-          initialDelaySeconds: 1
-          periodSeconds: 5
-          timeoutSeconds: 1
-          successThreshold: 1
-          failureThreshold: 1
-          exec:
-            command: ["/bin/bash","-c","mkdir -p {{ .Values.django_logpath }} && chmod 777 {{ .Values.django_logpath }}"]
+        #readinessProbe:
+        #  initialDelaySeconds: 1
+        #  periodSeconds: 5
+        #  timeoutSeconds: 1
+        #  successThreshold: 1
+        #  failureThreshold: 1
+          #exec:
+          #  command: ["/bin/bash","-c","mkdir -p {{ .Values.django_logpath }} && chmod 777 {{ .Values.django_logpath }}"]
       volumes:
-        - name: persistentfs
-          persistentVolumeClaim:
-            claimName: {{ .Values.pvcname }}
+        #- name: persistentfs
+        #  persistentVolumeClaim:
+        #    claimName: {{ .Values.pvcname }}
         - name: run
           emptyDir: {}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "django"
+spec:
+  selector:
+    app: "django"
+  ports:
+    - name: "tcp-8000"
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
