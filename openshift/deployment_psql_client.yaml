@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-client
+  namespace: belle2-cdb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sql-client
+  template:
+    metadata:
+      labels:
+        app: sql-client
+    spec:
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: b2testpsql
+      containers:
+        - name: sql-client
+          image: postgres:15
+          # Keep the pod alive so you can exec into it
+          command: ["sleep", "3600"]
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /mnt
+          imagePullPolicy: IfNotPresent
+      restartPolicy: Always
