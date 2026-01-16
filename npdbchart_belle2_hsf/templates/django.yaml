@@ -117,6 +117,8 @@ spec:
         #  name: persistentfs
         - name: run #to avoid permissions denied error
           mountPath: /var/run
+        - name: varlog
+          mountPath: /var/log
         #readinessProbe:
         #  initialDelaySeconds: 1
         #  periodSeconds: 5
@@ -125,12 +127,26 @@ spec:
         #  failureThreshold: 1
           #exec:
           #  command: ["/bin/bash","-c","mkdir -p {{ .Values.django_logpath }} && chmod 777 {{ .Values.django_logpath }}"]
+      - name: promtail
+        image: grafana/promtail:2.9.0
+        args:
+          - "-config.file=/etc/promtail/promtail-config.yaml"
+        volumeMounts:
+          - name: varlog
+            mountPath: /var/log
+          - name: promtail-config
+            mountPath: /etc/promtail
       volumes:
         #- name: persistentfs
         #  persistentVolumeClaim:
         #    claimName: {{ .Values.pvcname }}
         - name: run
           emptyDir: {}
+        - name: varlog
+          emptyDir: {}
+        - name: promtail-config
+          configMap:
+            name: promtail-config            
 ---
 kind: Service
 apiVersion: v1

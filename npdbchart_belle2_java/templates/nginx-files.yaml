@@ -38,6 +38,9 @@ data:
                 proxy_hide_header Cache-Control;
                 # Add Cache-Control header to the response
                 add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                limit_except GET HEAD {
+                    deny all;
+                }
             }
         }
  
@@ -62,6 +65,9 @@ data:
                 proxy_hide_header Cache-Control;
                 # Add Cache-Control header to the response
                 add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                limit_except GET HEAD {
+                    deny all;
+                }
             }
         }
     }

@@ -38,7 +38,8 @@ spec:
                 operator: NotIn
                 values:
                 - os-worker00.sdcc.bnl.gov
-                #- os-worker01.sdcc.bnl.gov
+                - os-worker02.sdcc.bnl.gov
+                - os-worker09.sdcc.bnl.gov
       #securityContext:
       #  fsGroup: 1000
       containers:
