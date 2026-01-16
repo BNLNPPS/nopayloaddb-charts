@@ -25,7 +25,7 @@ data:
   pgbouncer.ini: |
     [databases]
     pgbouncer = 
-    conditions = host={{ .Values.dbhost_w }} port=5432 dbname={{ .Values.dbname_w }}
+    {{ .Values.dbname_w }} = host={{ .Values.dbhost_w }} port=5432 dbname={{ .Values.dbname_w }}
     [pgbouncer]
     admin_users = {{ .Values.dbuser_w }}
     ignore_startup_parameters = extra_float_digits
@@ -33,7 +33,7 @@ data:
     listen_port = 6432
     logfile = /var/log/pgbouncer/pgbouncer.log
     pidfile = /var/run/pgbouncer/pgbouncer.pid
-    auth_type = md5
+    auth_type = scram-sha-256
     auth_file = /etc/pgbouncer/userlist.txt
     #auth_user = {{ .Values.dbuser }}
     unix_socket_dir = /var/run/pgbouncer

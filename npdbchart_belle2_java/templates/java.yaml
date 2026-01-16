@@ -46,7 +46,7 @@ spec:
                 #- os-worker02.sdcc.bnl.gov
                 #- os-worker03.sdcc.bnl.gov
                 #- os-worker04.sdcc.bnl.gov
-                #- os-worker05.sdcc.bnl.gov
+                - os-worker05.sdcc.bnl.gov
                 #- os-worker06.sdcc.bnl.gov
                 #- os-worker07.sdcc.bnl.gov
                 - os-worker08.sdcc.bnl.gov
