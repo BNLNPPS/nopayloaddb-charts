@@ -41,7 +41,7 @@ data:
             add_header X-Cache-Status $upstream_cache_status;
 
             proxy_cache my_cache;
-            proxy_cache_valid 200 302 10h; # Cache successful responses for 60 seconds
+            proxy_cache_valid 200 302 {{ .Values.nginx.cache.global_tag_status_valid }};
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             proxy_ignore_headers "Cache-Control" "Expires";
 
@@ -64,7 +64,7 @@ data:
             add_header X-Cache-Status $upstream_cache_status;
 
             proxy_cache my_cache;
-            proxy_cache_valid 200 302 600s; # Cache successful responses for 60 seconds
+            proxy_cache_valid 200 302 {{ .Values.nginx.cache.global_tag_valid }};
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             proxy_ignore_headers "Cache-Control" "Expires";
 
@@ -88,7 +88,7 @@ data:
             add_header X-Cache-Status $upstream_cache_status;
 
             proxy_cache my_cache;
-            proxy_cache_valid 200 302 300s; # Cache successful responses for 60 seconds
+            proxy_cache_valid 200 302 {{ .Values.nginx.cache.iov_payloads_valid }};
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             proxy_ignore_headers "Cache-Control" "Expires";
 
@@ -110,7 +110,7 @@ data:
             add_header X-Cache-Status $upstream_cache_status;
 
             proxy_cache my_cache;
-            proxy_cache_valid 200 302 60s; # Cache successful responses for 60 seconds
+            proxy_cache_valid 200 302 {{ .Values.nginx.cache.any_valid }};
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             proxy_ignore_headers "Cache-Control" "Expires";
 
