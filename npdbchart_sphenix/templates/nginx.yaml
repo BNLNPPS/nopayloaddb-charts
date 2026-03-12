@@ -26,7 +26,7 @@ data:
             proxy_pass http://django;
             proxy_redirect off;
             proxy_cache my_cache;
-            proxy_cache_valid 200 302 1h; # Cache successful responses for 5 seconds
+            proxy_cache_valid 200 302 {{ .Values.nginx.cache.gtstatus_valid }}; 
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             proxy_ignore_headers "Cache-Control" "Expires";
         }
@@ -35,7 +35,7 @@ data:
             proxy_pass http://django;
             proxy_redirect off;
             proxy_cache my_cache;
-            proxy_cache_valid 200 302 1s; # Cache successful responses for 5 seconds
+            proxy_cache_valid 200 302 {{ .Values.nginx.cache.global_tag_valid }}; 
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             proxy_ignore_headers "Cache-Control" "Expires";
         }

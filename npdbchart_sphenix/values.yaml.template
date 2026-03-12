@@ -4,6 +4,7 @@ project: project_name
 appname: spp_name
 #Docker
 django_docker_image: docker_image
+nginx_docker_image: "nginx:1.25" 
 #DB parameters
 dbhost_w: host_name
 dbname_w: database_name
@@ -22,3 +23,11 @@ django_logpath: /mnt/current_logfiles
 nginx_logpath: /mnt/current_logfiles
 #PersistentVolumeClaims
 pvcname: pvc_name
+
+#NGINX Cache Durations
+#Note: Durations can be in seconds(s), minutes(m), or hours(h).
+nginx:
+  cache:
+    gt_status_valid: 1h  #For /globalTagStatus
+    global_tag_valid: 1s  #For /globalTags
+    
