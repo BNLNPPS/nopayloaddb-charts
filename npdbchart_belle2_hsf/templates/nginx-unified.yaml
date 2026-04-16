@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-unified-conf
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        log_format main_with_cache '$remote_addr - $remote_user [$time_local] '
+                                    '"$request" $status $body_bytes_sent '
+                                    '"$http_referer" "$http_user_agent" '
+                                    '$upstream_cache_status';
+
+        access_log /dev/stdout main_with_cache;
+        error_log /dev/stderr warn;
+
+        # Shared Cache Configuration
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:50m max_size=500m inactive=1h use_temp_path=off;
+
+        # API Upstreams
+        upstream java {
+            server java.{{ .Values.project }}.svc.cluster.local:8080 max_conns=150;
+        }
+
+        upstream java-replica {
+            server java.{{ .Values.project }}.svc.cluster.local:8080 weight=80 max_conns=120;
+            server java-replica.{{ .Values.project }}.svc.cluster.local:8080 weight=20 max_conns=100;
+        }
+
+        client_max_body_size 100M;
+
+        # --- Metadata API Proxy ---
+        server {
+            listen 8080;
+            server_name {{ .Values.appname }}.apps.{{ .Values.okdcluster }};
+
+            proxy_hide_header Cache-Control;
+            add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+            add_header X-Cache-Status $upstream_cache_status;
+            proxy_cache my_cache;
+            proxy_ignore_headers "Cache-Control" "Expires";
+            
+            proxy_read_timeout 1800;
+            proxy_connect_timeout 1800;
+            proxy_send_timeout 1800;
+
+            location /b2s/rest/v2/globalTagStatus {
+                proxy_pass http://java;
+                proxy_cache_valid 200 302 10h;
+            }
+
+            location /b2s/rest/v2/globalTags {
+                proxy_pass http://java;
+                proxy_cache_valid 200 302 600s;
+            }
+
+            location /b2s/rest/v2/iovPayloads {
+                proxy_pass http://java-replica;
+                proxy_cache_valid 200 302 300s;
+            }
+
+            location / {
+                proxy_pass http://java;
+                proxy_cache_valid 200 302 60s;
+            }
+        }
+
+        # --- Payload Server ---
+        server {
+            listen 8080;
+            server_name {{ .Values.appname_files }}.apps.{{ .Values.okdcluster }};
+
+            location / {
+                root /usr/share/nginx/html;
+                proxy_hide_header Cache-Control;
+                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                limit_except GET HEAD {
+                    deny all;
+                }
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-unified
+  labels:
+    app: nginx-unified
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-unified
+  template:
+    metadata:
+      labels:
+        app: nginx-unified
+    spec:
+      securityContext:
+        runAsUser: 101
+        fsGroup: 1000860000 
+      volumes:
+        - name: files-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc_payload_server }}
+        - name: nginx-conf-volume
+          configMap:
+            name: nginx-unified-conf
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-pid
+          emptyDir: {}
+      containers:
+        - name: nginx
+          image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/nginx:{{ .Values.nginx_docker_image | splitList ":" | last }}"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: files-volume
+              mountPath: /usr/share/nginx/html
+              subPath: {{ .Values.subPath }}
+            - name: nginx-conf-volume
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-pid
+              mountPath: /var/run
+          imagePullPolicy: IfNotPresent
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-unified
+spec:
+  selector:
+    app: nginx-unified
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: nginx-api
+  annotations:
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  host: {{ .Values.appname }}.apps.{{ .Values.okdcluster }}
+  to:
+    kind: Service
+    name: nginx-unified
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow 
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: nginx-files
+  annotations:
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  host: {{ .Values.appname_files }}.apps.{{ .Values.okdcluster }}
+  to:
+    kind: Service
+    name: nginx-unified
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow
