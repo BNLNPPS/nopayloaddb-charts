@@ -69,13 +69,13 @@ data:
                 proxy_cache_valid 200 302 300s;
             }
 
-            location / {
+            location /b2s/rest {
                 proxy_pass http://java;
                 proxy_cache_valid 200 302 60s;
             }
 
             # --- Payload Files ---
-            location /payloads/ {
+            location /dbstore {
                 root /usr/share/nginx/html;
                 limit_except GET HEAD {
                     deny all;
