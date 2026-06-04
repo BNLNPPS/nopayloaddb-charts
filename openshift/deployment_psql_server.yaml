@@ -55,9 +55,15 @@ spec:
             - name: POSTGRESQL_DATABASE
               value: conditions
             - name: POSTGRESQL_USER
-              value: dbuser
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: username
             - name: POSTGRESQL_PASSWORD
-              value: dbpassword
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: password
           resources:
             requests:
               cpu: "2"
