@@ -1,34 +1,44 @@
+# Deploy with:
+#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb \
+#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
+#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+#
+# For persistent storage, uncomment the PVC block below and add PVC_NAME:
+#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb PVC_NAME=my-pvc \
+#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
+#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: b2testpsql
-  namespace: belle2-cdb
+  name: ${INSTANCE_NAME}
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: b2testpsql
+      app: ${INSTANCE_NAME}
   template:
     metadata:
       labels:
-        app: b2testpsql
+        app: ${INSTANCE_NAME}
     spec:
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: b2testpsql
+        - name: ${INSTANCE_NAME}
           image: registry.redhat.io/rhel9/postgresql-15
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRESQL_DATABASE
-              value: # specify your database name
+              value: "${POSTGRESQL_DATABASE}"
             - name: POSTGRESQL_USER
-              value: # specify your database user
+              value: "${POSTGRESQL_USER}"
             - name: POSTGRESQL_PASSWORD
-              value: # specify your database password, it's explicit and not secure, consider using Secrets for production
+              value: "${POSTGRESQL_PASSWORD}"
           resources:
             requests:
               cpu: "2"
@@ -41,17 +51,20 @@ spec:
               mountPath: /var/lib/pgsql/data
       volumes:
         - name: postgres-data
-          persistentVolumeClaim:
-            claimName: b2testpsql
+          # Option 1: Persistent storage (uncomment below, comment out emptyDir)
+          # persistentVolumeClaim:
+          #   claimName: ${PVC_NAME}
+          # Option 2: Ephemeral storage (no PVC required)
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: b2testpsql
-  namespace: belle2-cdb
+  name: ${INSTANCE_NAME}
+  namespace: ${NAMESPACE}
 spec:
   ports:
     - port: 5432
       targetPort: 5432
   selector:
-    app: b2testpsql
+    app: ${INSTANCE_NAME}
