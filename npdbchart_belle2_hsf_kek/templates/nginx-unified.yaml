@@ -1,7 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-unified-conf
+  name: {{ include "npdbchart.fullname" . }}-nginx-conf
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nginx
 data:
   nginx.conf: |
     user nginx;
@@ -28,7 +31,7 @@ data:
 
         # API Upstreams
         upstream django {
-            server django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
+            server {{ include "npdbchart.fullname" . }}-django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
         }
 
         client_max_body_size 100M;
@@ -43,44 +46,14 @@ data:
             add_header X-Cache-Status $upstream_cache_status;
             proxy_cache my_cache;
             proxy_ignore_headers "Cache-Control" "Expires";
-            
+
             proxy_read_timeout 1800;
             proxy_connect_timeout 1800;
             proxy_send_timeout 1800;
 
-            #location /b2s/rest/v2/globalTagStatus {
-            #    proxy_pass http://java;
-            #    proxy_cache_valid 200 302 10h;
-            #}
-
-            #location /b2s/rest/v2/globalTags {
-            #    proxy_pass http://java;
-            #    proxy_cache_valid 200 302 600s;
-            #}
-
-            #location /b2s/rest/v2/iovPayloads {
-            #    proxy_pass http://java-replica;
-            #    proxy_cache_valid 200 302 300s;
-            #}
-
             location / {
                 proxy_pass http://django;
                 proxy_redirect off;
-            }
-        }
-
-        # --- Payload Server ---
-        #server {
-        #    listen 8080;
-        #    server_name {{ .Values.appname_files }}.{{ .Values.domain }};
-        #
-        #    location / {
-        #        root /usr/share/nginx/html;
-        #        proxy_hide_header Cache-Control;
-        #        add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
-        #        limit_except GET HEAD {
-        #            deny all;
-        #        }
             }
         }
     }
@@ -88,36 +61,39 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-unified
+  name: {{ include "npdbchart.fullname" . }}-nginx
   labels:
-    app: nginx-unified
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nginx
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx-unified
+      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: nginx
   template:
     metadata:
       labels:
-        app: nginx-unified
+        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nginx
     spec:
       securityContext:
         runAsUser: 101
-        fsGroup: 1000860000 
+        fsGroup: 1000860000
       volumes:
         - name: files-volume
           persistentVolumeClaim:
             claimName: {{ .Values.pvc_payload_server }}
         - name: nginx-conf-volume
           configMap:
-            name: nginx-unified-conf
+            name: {{ include "npdbchart.fullname" . }}-nginx-conf
         - name: nginx-cache
           emptyDir: {}
         - name: nginx-pid
           emptyDir: {}
       containers:
         - name: nginx
-          image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/nginx:{{ .Values.nginx_docker_image | splitList ":" | last }}"
+          image: {{ .Values.nginx_docker_image }}
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -137,10 +113,14 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: nginx-unified
+  name: {{ include "npdbchart.fullname" . }}-nginx
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nginx
 spec:
   selector:
-    app: nginx-unified
+    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: nginx
   ports:
     - name: http
       protocol: TCP
@@ -150,7 +130,10 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: nginx-unified
+  name: {{ include "npdbchart.fullname" . }}-nginx
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nginx
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
@@ -162,20 +145,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: nginx-unified
-                port:
-                  name: http
-    - host: {{ .Values.appname_files }}.{{ .Values.domain }}
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: nginx-unified
+                name: {{ include "npdbchart.fullname" . }}-nginx
                 port:
                   name: http
   tls:
     - hosts:
         - {{ .Values.appname }}.{{ .Values.domain }}
-        - {{ .Values.appname_files }}.{{ .Values.domain }}
