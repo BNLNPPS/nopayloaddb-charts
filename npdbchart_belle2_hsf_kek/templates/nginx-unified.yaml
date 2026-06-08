@@ -81,9 +81,11 @@ spec:
         runAsUser: 101
         fsGroup: 1000860000
       volumes:
+        # TODO: enable PVC when payload storage is provisioned
         - name: files-volume
-          persistentVolumeClaim:
-            claimName: {{ .Values.pvc_payload_server }}
+          emptyDir: {}
+          #persistentVolumeClaim:
+          #  claimName: {{ .Values.pvc_payload_server }}
         - name: nginx-conf-volume
           configMap:
             name: {{ include "npdbchart.fullname" . }}-nginx-conf
