@@ -67,12 +67,11 @@ spec:
             command:
             - /bin/sh
             - -c
-            - |
-              python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/cdb_rest/gtstatus')" || (python3 manage.py makemigrations cdb_rest; python3 manage.py migrate cdb_rest; exit 1)
-          initialDelaySeconds: 120
+            - python3 manage.py makemigrations cdb_rest; python3 manage.py migrate cdb_rest
+          initialDelaySeconds: 10
           periodSeconds: 30
           failureThreshold: 1
-          timeoutSeconds: 30
+          timeoutSeconds: 120
         env:
         - name: POSTGRES_HOST_W
           value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
