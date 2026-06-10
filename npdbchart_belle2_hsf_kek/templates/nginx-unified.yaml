@@ -138,7 +138,9 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # OpenShift: tells ingress-to-route controller to use edge TLS termination (ignored on k3s)
+    route.openshift.io/termination: edge
+    route.openshift.io/insecureEdgeTerminationPolicy: Allow
 spec:
   rules:
     - host: {{ .Values.appname }}.{{ .Values.domain }}
@@ -151,6 +153,3 @@ spec:
                 name: {{ include "npdbchart.fullname" . }}-nginx
                 port:
                   name: http
-  tls:
-    - hosts:
-        - {{ .Values.appname }}.{{ .Values.domain }}
