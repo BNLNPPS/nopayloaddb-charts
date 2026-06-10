@@ -77,9 +77,9 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: nginx
     spec:
-      securityContext:
-        runAsUser: 101
-        fsGroup: 1000860000
+      #securityContext:
+      #  runAsUser: 101
+      #  fsGroup: 1000860000
       volumes:
         # TODO: enable PVC when payload storage is provisioned
         - name: files-volume
