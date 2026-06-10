@@ -68,15 +68,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              python3 -c "
-              import urllib.request, json, sys
-              try:
-                  r = urllib.request.urlopen('http://localhost:8000/api/cdb_rest/gtstatus')
-                  data = json.loads(r.read())
-                  sys.exit(0 if data else 1)
-              except:
-                  sys.exit(1)
-              " || (python3 manage.py makemigrations cdb_rest; python3 manage.py migrate cdb_rest; exit 1)
+              python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/cdb_rest/gtstatus')" || (python3 manage.py makemigrations cdb_rest; python3 manage.py migrate cdb_rest; exit 1)
           initialDelaySeconds: 120
           periodSeconds: 30
           failureThreshold: 1
