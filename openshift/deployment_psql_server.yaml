@@ -42,15 +42,15 @@ spec:
         app: b2testpsql-primary
     spec:
       securityContext:
-        runAsNonRoot: false
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       volumes:
         - name: postgres-logs
           emptyDir: {}
       containers:
-        - name: postgres
-          image: postgres:15
+        - name: b2testpsql
+          image: registry.redhat.io/rhel9/postgresql-15
           args:
             - "-c"
             - "shared_preload_libraries=pg_stat_statements"
