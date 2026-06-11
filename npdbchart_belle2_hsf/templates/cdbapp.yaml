@@ -299,7 +299,7 @@ spec:
         {{- end }}
         env:
         - name: POSTGRES_HOST_W
-          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+          value: {{ if .Values.use_pgbouncer }}{{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local{{ else }}{{ .Values.dbhost_w }}{{ end }}
         - name: POSTGRES_DB_W
           value: {{ .Values.dbname_w }}
         - name: POSTGRES_USER_W
@@ -307,9 +307,9 @@ spec:
         - name: POSTGRES_PASSWORD_W
           value: {{ .Values.dbpassword_w }}
         - name: POSTGRES_PORT_W
-          value: "6432"
+          value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
         - name: POSTGRES_HOST_R1
-          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+          value: {{ if .Values.use_pgbouncer }}{{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local{{ else }}{{ .Values.dbhost_r1 }}{{ end }}
         - name: POSTGRES_DB_R1
           value: {{ .Values.dbname_r1 }}
         - name: POSTGRES_USER_R1
@@ -317,9 +317,9 @@ spec:
         - name: POSTGRES_PASSWORD_R1
           value: {{ .Values.dbpassword_r1 }}
         - name: POSTGRES_PORT_R1
-          value: "6432"
+          value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
         - name: POSTGRES_HOST_R2
-          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+          value: {{ if .Values.use_pgbouncer }}{{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local{{ else }}{{ .Values.dbhost_r2 }}{{ end }}
         - name: POSTGRES_DB_R2
           value: {{ .Values.dbname_r2 }}
         - name: POSTGRES_USER_R2
@@ -327,7 +327,7 @@ spec:
         - name: POSTGRES_PASSWORD_R2
           value: {{ .Values.dbpassword_r2 }}
         - name: POSTGRES_PORT_R2
-          value: "6432"
+          value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
         volumeMounts:
         - name: run
           mountPath: /var/run

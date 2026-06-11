@@ -1,3 +1,4 @@
+{{- if .Values.use_pgbouncer }}
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
@@ -110,3 +111,4 @@ spec:
       targetPort: 6432
   type: ClusterIP
   sessionAffinity: None
+{{- end }}

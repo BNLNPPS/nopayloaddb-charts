@@ -40,3 +40,4 @@ promtail_enabled: false
 migrations_enabled: false
 use_ingress: false
 use_java: false
+use_pgbouncer: false
