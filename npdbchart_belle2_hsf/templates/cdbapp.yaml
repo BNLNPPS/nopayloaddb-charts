@@ -1,0 +1,375 @@
+{{- if .Values.use_java }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-java
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.java_docker_image | splitList ":" | last | quote }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.java_docker_image }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-java
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: java
+  template:
+    metadata:
+      labels:
+        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: java
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - {{ .Values.exclude_node }}
+      securityContext:
+        runAsUser: 50001
+        runAsGroup: 50001
+        fsGroup: 50001
+      containers:
+      - name: java
+        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-java:{{ .Values.java_docker_image | splitList ":" | last }}"
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+              - echo
+              - ready
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 1
+        env:
+        - name: PGSERVER
+          value: {{ .Values.dbhost_w }}
+        - name: PGPORT
+          value: "5432"
+        - name: B2S_APP_LOGGING_LEVEL
+          value: INFO
+        - name: B2S_SERVER_LOGGING_LEVEL
+          value: FINEST
+        - name: B2S_HAS_EXTERNAL_SERVICE_CACHE
+          value: "false"
+        - name: B2S_RESOURCE_CACHE_ENABLED
+          value: "false"
+        - name: B2S_JWT_AUTH
+          value: "true"
+        - name: B2S_AUTH_SECRET
+          value: {{ .Values.jwt_secret | quote }}
+        - name: B2S_SERVICES_PORT
+          value: "8080"
+        - name: B2S_SWAGGER_HOST_PORT
+          value: "8081"
+        - name: B2S_QUERY_CACHE_MAX_SIZE
+          value: "100"
+        - name: B2S_INITIAL_MEM
+          value: "2048"
+        - name: B2S_MAX_MEM
+          value: "5096"
+        - name: B2S_PAYLOAD_SERVER
+          value: {{ .Values.payload_server_alias }}
+        - name: B2S_PAYLOAD_SERVER_SECURE
+          value: "true"
+        - name: B2S_PAYLOAD_SERVER_ROOT_PATH
+          value: "/srv"
+        volumeMounts:
+        - mountPath: /srv
+          name: payloadfs
+          subPath: {{ .Values.subPath }}
+        resources:
+          requests:
+            cpu: "4"
+            ephemeral-storage: "200Mi"
+      volumes:
+        - name: payloadfs
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc_payload_server }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-java-replica
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java-replica
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: java-replica
+  template:
+    metadata:
+      labels:
+        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: java-replica
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - {{ .Values.exclude_node }}
+      securityContext:
+        runAsUser: 50001
+        runAsGroup: 50001
+        fsGroup: 50001
+      containers:
+      - name: java-replica
+        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-java:{{ .Values.java_docker_image | splitList ":" | last }}"
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+              - echo
+              - ready
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 1
+        env:
+        - name: PGSERVER
+          value: {{ .Values.dbreplicahost }}
+        - name: PGPORT
+          value: "5432"
+        - name: B2S_APP_LOGGING_LEVEL
+          value: INFO
+        - name: B2S_SERVER_LOGGING_LEVEL
+          value: FINEST
+        - name: B2S_HAS_EXTERNAL_SERVICE_CACHE
+          value: "false"
+        - name: B2S_RESOURCE_CACHE_ENABLED
+          value: "false"
+        - name: B2S_JWT_AUTH
+          value: "true"
+        - name: B2S_AUTH_SECRET
+          value: {{ .Values.jwt_secret | quote }}
+        - name: B2S_SERVICES_PORT
+          value: "8080"
+        - name: B2S_SWAGGER_HOST_PORT
+          value: "8081"
+        - name: B2S_QUERY_CACHE_MAX_SIZE
+          value: "100"
+        - name: B2S_INITIAL_MEM
+          value: "2048"
+        - name: B2S_MAX_MEM
+          value: "5096"
+        - name: B2S_PAYLOAD_SERVER
+          value: {{ .Values.payload_server_alias }}
+        - name: B2S_PAYLOAD_SERVER_SECURE
+          value: "true"
+        - name: B2S_PAYLOAD_SERVER_ROOT_PATH
+          value: "/srv"
+        volumeMounts:
+        - mountPath: /srv
+          name: payloadfs
+          subPath: {{ .Values.subPath }}
+        resources:
+          requests:
+            cpu: "4"
+            ephemeral-storage: "200Mi"
+      volumes:
+        - name: payloadfs
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc_payload_server }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-java
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+spec:
+  selector:
+    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+  ports:
+    - name: "tcp-8080"
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-java-replica
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java-replica
+spec:
+  selector:
+    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: java-replica
+  ports:
+    - name: "tcp-8080"
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+{{- else }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-django
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.django_docker_image | splitList ":" | last | quote }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.django_docker_image }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-django
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: django
+  template:
+    metadata:
+      labels:
+        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: django
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - {{ .Values.exclude_node }}
+      containers:
+      - name: django
+        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-django:{{ .Values.django_docker_image | splitList ":" | last }}"
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        {{- if .Values.migrations_enabled }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - python3 manage.py makemigrations cdb_rest; python3 manage.py migrate cdb_rest
+        {{- end }}
+        env:
+        - name: POSTGRES_HOST_W
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_W
+          value: {{ .Values.dbname_w }}
+        - name: POSTGRES_USER_W
+          value: {{ .Values.dbuser_w }}
+        - name: POSTGRES_PASSWORD_W
+          value: {{ .Values.dbpassword_w }}
+        - name: POSTGRES_PORT_W
+          value: "6432"
+        - name: POSTGRES_HOST_R1
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_R1
+          value: {{ .Values.dbname_r1 }}
+        - name: POSTGRES_USER_R1
+          value: {{ .Values.dbuser_r1 }}
+        - name: POSTGRES_PASSWORD_R1
+          value: {{ .Values.dbpassword_r1 }}
+        - name: POSTGRES_PORT_R1
+          value: "6432"
+        - name: POSTGRES_HOST_R2
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_R2
+          value: {{ .Values.dbname_r2 }}
+        - name: POSTGRES_USER_R2
+          value: {{ .Values.dbuser_r2 }}
+        - name: POSTGRES_PASSWORD_R2
+          value: {{ .Values.dbpassword_r2 }}
+        - name: POSTGRES_PORT_R2
+          value: "6432"
+        volumeMounts:
+        - name: run
+          mountPath: /var/run
+        - name: varlog
+          mountPath: /var/log
+      {{- if .Values.promtail_enabled }}
+      - name: promtail
+        image: grafana/promtail:2.9.0
+        args:
+          - "-config.file=/etc/promtail/promtail-config.yaml"
+        volumeMounts:
+          - name: varlog
+            mountPath: /var/log
+          - name: promtail-config
+            mountPath: /etc/promtail
+      {{- end }}
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: varlog
+          emptyDir: {}
+        {{- if .Values.promtail_enabled }}
+        - name: promtail-config
+          configMap:
+            name: promtail-config
+        {{- end }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-django
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  selector:
+    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+  ports:
+    - name: "tcp-8000"
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+{{- end }}
