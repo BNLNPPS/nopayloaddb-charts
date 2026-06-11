@@ -1,8 +1,7 @@
 #OKD project
-domain: openshift_cluster_base_url
+okdserver: openshift_cluster_base_url
 project: project_name
 appname: app_name
-appname_files: app_name_files
 #Docker
 django_docker_image: docker_image
 nginx_docker_image: docker_image
@@ -20,17 +19,6 @@ dbhost_r2: host_name
 dbname_r2: database_name
 dbuser_r2: user_name
 dbpassword_r2: password
-#NGINX
+#django
 nginx_logpath: /var/log/nginx
-#NGINX Cache-Control
-nginx_cache_control_value: max-age=3600
-#PVC
-pvc_payload_server: pvc_name
-subPath: subpath_value
-#Node affinity
-exclude_node: os-worker00.domain
-pgbouncer_node: os-worker00.domain
-#Optional features
-promtail_enabled: false
-migrations_enabled: false
-use_ingress: false
+

@@ -1,26 +1,7 @@
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
-spec:
-  lookupPolicy:
-    local: true
-  tags:
-    - name: {{ .Values.nginx_docker_image | splitList ":" | last | quote }}
-      from:
-        kind: DockerImage
-        name: {{ .Values.nginx_docker_image }}
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx-conf
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
+  name: nginx-unified-conf
 data:
   nginx.conf: |
     user nginx;
@@ -47,25 +28,49 @@ data:
 
         # API Upstreams
         upstream django {
-            server {{ include "npdbchart.fullname" . }}-django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
+            server django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
         }
+
+        #upstream java {
+        #    server java.{{ .Values.project }}.svc.cluster.local:8080 max_conns=150;
+        #}
+
+        #upstream java-replica {
+        #    server java.{{ .Values.project }}.svc.cluster.local:8080 weight=80 max_conns=120;
+        #    server java-replica.{{ .Values.project }}.svc.cluster.local:8080 weight=20 max_conns=100;
+        #}
 
         client_max_body_size 100M;
 
         # --- Metadata API Proxy ---
         server {
             listen 8080;
-            server_name {{ .Values.appname }}.{{ .Values.domain }};
+            server_name {{ .Values.appname }}.apps.{{ .Values.okdcluster }};
 
             proxy_hide_header Cache-Control;
-            add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+            add_header Cache-Control {{ .Values.nginx_cache_control_value }};
             add_header X-Cache-Status $upstream_cache_status;
             proxy_cache my_cache;
             proxy_ignore_headers "Cache-Control" "Expires";
-
+            
             proxy_read_timeout 1800;
             proxy_connect_timeout 1800;
             proxy_send_timeout 1800;
+
+            #location /b2s/rest/v2/globalTagStatus {
+            #    proxy_pass http://java;
+            #    proxy_cache_valid 200 302 10h;
+            #}
+
+            #location /b2s/rest/v2/globalTags {
+            #    proxy_pass http://java;
+            #    proxy_cache_valid 200 302 600s;
+            #}
+
+            #location /b2s/rest/v2/iovPayloads {
+            #    proxy_pass http://java-replica;
+            #    proxy_cache_valid 200 302 300s;
+            #}
 
             location / {
                 proxy_pass http://django;
@@ -76,7 +81,7 @@ data:
         # --- Payload Server ---
         server {
             listen 8080;
-            server_name {{ .Values.appname_files }}.{{ .Values.domain }};
+            server_name {{ .Values.appname_files }}.apps.{{ .Values.okdcluster }};
 
             location / {
                 root /usr/share/nginx/html;
@@ -92,39 +97,36 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
+  name: nginx-unified
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
+    app: nginx-unified
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: nginx
+      app: nginx-unified
   template:
     metadata:
       labels:
-        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: nginx
+        app: nginx-unified
     spec:
       securityContext:
         runAsUser: 101
-        fsGroup: 1000860000
+        fsGroup: 1000860000 
       volumes:
         - name: files-volume
           persistentVolumeClaim:
             claimName: {{ .Values.pvc_payload_server }}
         - name: nginx-conf-volume
           configMap:
-            name: {{ include "npdbchart.fullname" . }}-nginx-conf
+            name: nginx-unified-conf
         - name: nginx-cache
           emptyDir: {}
         - name: nginx-pid
           emptyDir: {}
       containers:
         - name: nginx
-          image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-nginx:{{ .Values.nginx_docker_image | splitList ":" | last }}"
+          image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/nginx:{{ .Values.nginx_docker_image | splitList ":" | last }}"
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -144,61 +146,29 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
+  name: nginx-unified
 spec:
   selector:
-    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
+    app: nginx-unified
   ports:
     - name: http
       protocol: TCP
       port: 80
       targetPort: 8080
 ---
-{{- if .Values.use_ingress }}
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
-  annotations:
-    route.openshift.io/termination: edge
-    route.openshift.io/insecureEdgeTerminationPolicy: Allow
-spec:
-  rules:
-    - host: {{ .Values.appname }}.{{ .Values.domain }}
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "npdbchart.fullname" . }}-nginx
-                port:
-                  name: http
-{{- else }}
 kind: Route
 apiVersion: route.openshift.io/v1
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
+  name: nginx-unified
   annotations:
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  host: {{ .Values.appname }}.{{ .Values.domain }}
+  host: nginx-unified.apps.{{ .Values.okdcluster }}
   to:
     kind: Service
-    name: {{ include "npdbchart.fullname" . }}-nginx
+    name: nginx-unified
   port:
     targetPort: http
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Allow
-{{- end }}
