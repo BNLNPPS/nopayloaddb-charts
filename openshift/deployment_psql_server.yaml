@@ -1,34 +1,85 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
-  name: b2testpsql
+  name: b2testpsql-primary-headless
   namespace: belle2-cdb
 spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: b2testpsql-primary
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b2testpsql-primary
+  namespace: belle2-cdb
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: b2testpsql-primary
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: b2testpsql-primary
+  namespace: belle2-cdb
+spec:
+  serviceName: b2testpsql-primary-headless
   replicas: 1
   selector:
     matchLabels:
-      app: b2testpsql
+      app: b2testpsql-primary
   template:
     metadata:
       labels:
-        app: b2testpsql
+        app: b2testpsql-primary
     spec:
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: postgres-logs
+          emptyDir: {}
       containers:
-        - name: b2testpsql
-          image: registry.redhat.io/rhel9/postgresql-15
+        - name: postgres
+          image: postgres:15
+          args:
+            - "-c"
+            - "shared_preload_libraries=pg_stat_statements"
+            - "-c"
+            - "pg_stat_statements.track=all"
+            - "-c"
+            - "log_min_duration_statement=500"
+            - "-c"
+            - "logging_collector=on"
+            - "-c"
+            - "log_directory=/var/log/postgresql"
+            - "-c"
+            - "log_filename=postgresql-%Y-%m-%d.log"
           ports:
             - containerPort: 5432
+              name: postgres
           env:
             - name: POSTGRESQL_DATABASE
-              value: # specify your database name
+              value: conditions
             - name: POSTGRESQL_USER
-              value: # specify your database user
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: username
             - name: POSTGRESQL_PASSWORD
-              value: # specify your database password, it's explicit and not secure, consider using Secrets for production
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: password
           resources:
             requests:
               cpu: "2"
@@ -39,19 +90,13 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
-      volumes:
-        - name: postgres-data
-          persistentVolumeClaim:
-            claimName: b2testpsql
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: b2testpsql
-  namespace: belle2-cdb
-spec:
-  ports:
-    - port: 5432
-      targetPort: 5432
-  selector:
-    app: b2testpsql
+            - name: postgres-logs
+              mountPath: /var/log/postgresql
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
