@@ -27,6 +27,8 @@ data:
     [databases]
     pgbouncer =
     {{ .Values.dbname_w }} = host={{ .Values.dbhost_w }} port=5432 dbname={{ .Values.dbname_w }}
+    {{ .Values.dbname_r1 }} = host={{ .Values.dbhost_r1 }} port=5432 dbname={{ .Values.dbname_r1 }}
+    {{ .Values.dbname_r2 }} = host={{ .Values.dbhost_r2 }} port=5432 dbname={{ .Values.dbname_r2 }}
     [pgbouncer]
     admin_users = {{ .Values.dbuser_w }}
     ignore_startup_parameters = extra_float_digits
@@ -44,6 +46,12 @@ data:
     reserve_pool_timeout = 5
   userlist.txt: |
     {{ .Values.dbuser_w | quote }} {{ .Values.dbpassword_w | quote }}
+    {{- if ne .Values.dbuser_r1 .Values.dbuser_w }}
+    {{ .Values.dbuser_r1 | quote }} {{ .Values.dbpassword_r1 | quote }}
+    {{- end }}
+    {{- if and (ne .Values.dbuser_r2 .Values.dbuser_w) (ne .Values.dbuser_r2 .Values.dbuser_r1) }}
+    {{ .Values.dbuser_r2 | quote }} {{ .Values.dbpassword_r2 | quote }}
+    {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
