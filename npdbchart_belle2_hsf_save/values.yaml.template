@@ -1,0 +1,24 @@
+#OKD project
+okdserver: openshift_cluster_base_url
+project: project_name
+appname: app_name
+#Docker
+django_docker_image: docker_image
+nginx_docker_image: docker_image
+pgbouncer_docker_image: docker_image
+#DB parameters
+dbhost_w: host_name
+dbname_w: database_name
+dbuser_w: user_name
+dbpassword_w: password
+dbhost_r1: host_name
+dbname_r1: database_name
+dbuser_r1: user_name
+dbpassword_r1: password
+dbhost_r2: host_name
+dbname_r2: database_name
+dbuser_r2: user_name
+dbpassword_r2: password
+#django
+nginx_logpath: /var/log/nginx
+

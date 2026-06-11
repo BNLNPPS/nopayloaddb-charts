@@ -1,19 +1,3 @@
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
-spec:
-  lookupPolicy:
-    local: true
-  tags:
-    - name: {{ .Values.nginx_docker_image | splitList ":" | last | quote }}
-      from:
-        kind: DockerImage
-        name: {{ .Values.nginx_docker_image }}
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -45,22 +29,10 @@ data:
         # Shared Cache Configuration
         proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:50m max_size=500m inactive=1h use_temp_path=off;
 
-        {{- if .Values.use_java }}
-        # Java API Upstreams
-        upstream java {
-            server {{ include "npdbchart.fullname" . }}-java.{{ .Values.project }}.svc.cluster.local:8080 max_conns=150;
-        }
-
-        upstream java-replica {
-            server {{ include "npdbchart.fullname" . }}-java.{{ .Values.project }}.svc.cluster.local:8080 weight=80 max_conns=120;
-            server {{ include "npdbchart.fullname" . }}-java-replica.{{ .Values.project }}.svc.cluster.local:8080 weight=20 max_conns=100;
-        }
-        {{- else }}
-        # Django API Upstream
+        # API Upstreams
         upstream django {
             server {{ include "npdbchart.fullname" . }}-django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
         }
-        {{- end }}
 
         client_max_body_size 100M;
 
@@ -79,64 +51,9 @@ data:
             proxy_connect_timeout 1800;
             proxy_send_timeout 1800;
 
-            {{- if .Values.use_java }}
-            location /b2s/rest/v2/globalTagStatus {
-                proxy_pass http://java;
-                proxy_cache_valid 200 302 10h;
-                proxy_redirect off;
-            }
-
-            location /b2s/rest/v2/globalTags {
-                proxy_pass http://java;
-                proxy_cache_valid 200 302 600s;
-                proxy_redirect off;
-            }
-
-            location /b2s/rest/v2/iovPayloads {
-                proxy_pass http://java-replica;
-                proxy_cache_valid 200 302 300s;
-                proxy_redirect off;
-            }
-
-            location / {
-                proxy_pass http://java;
-                proxy_cache_valid 200 302 60s;
-                proxy_redirect off;
-            }
-            {{- else }}
-            location /api/cdb_rest/gtstatus {
-                proxy_pass http://django;
-                proxy_redirect off;
-                proxy_cache_valid 200 302 1h;
-                proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
-            }
-
-            location /api/cdb_rest/globalTags {
-                proxy_pass http://django;
-                proxy_redirect off;
-                proxy_cache_valid 200 302 1s;
-                proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
-            }
-
             location / {
                 proxy_pass http://django;
                 proxy_redirect off;
-            }
-            {{- end }}
-        }
-
-        # --- Payload Server ---
-        server {
-            listen 8080;
-            server_name {{ .Values.appname_files }}.{{ .Values.domain }};
-
-            location / {
-                root /usr/share/nginx/html;
-                proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
-                limit_except GET HEAD {
-                    deny all;
-                }
             }
         }
     }
@@ -160,13 +77,15 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: nginx
     spec:
-      securityContext:
-        runAsUser: 101
-        fsGroup: 1000860000
+      #securityContext:
+      #  runAsUser: 101
+      #  fsGroup: 1000860000
       volumes:
+        # TODO: enable PVC when payload storage is provisioned
         - name: files-volume
-          persistentVolumeClaim:
-            claimName: {{ .Values.pvc_payload_server }}
+          emptyDir: {}
+          #persistentVolumeClaim:
+          #  claimName: {{ .Values.pvc_payload_server }}
         - name: nginx-conf-volume
           configMap:
             name: {{ include "npdbchart.fullname" . }}-nginx-conf
@@ -176,14 +95,15 @@ spec:
           emptyDir: {}
       containers:
         - name: nginx
-          image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-nginx:{{ .Values.nginx_docker_image | splitList ":" | last }}"
+          image: {{ .Values.nginx_docker_image }}
           ports:
             - containerPort: 8080
               protocol: TCP
           volumeMounts:
-            - name: files-volume
-              mountPath: /usr/share/nginx/html
-              subPath: {{ .Values.subPath }}
+            # TODO: enable when PVC is provisioned
+            #- name: files-volume
+            #  mountPath: /usr/share/nginx/html
+            #  subPath: {{ .Values.subPath }}
             - name: nginx-conf-volume
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
@@ -210,7 +130,6 @@ spec:
       port: 80
       targetPort: 8080
 ---
-{{- if .Values.use_ingress }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -219,6 +138,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
   annotations:
+    # OpenShift: tells ingress-to-route controller to use edge TLS termination (ignored on k3s)
     route.openshift.io/termination: edge
     route.openshift.io/insecureEdgeTerminationPolicy: Allow
 spec:
@@ -233,24 +153,3 @@ spec:
                 name: {{ include "npdbchart.fullname" . }}-nginx
                 port:
                   name: http
-{{- else }}
-kind: Route
-apiVersion: route.openshift.io/v1
-metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: nginx
-  annotations:
-    haproxy.router.openshift.io/disable_cookies: "true"
-spec:
-  host: {{ .Values.appname }}.{{ .Values.domain }}
-  to:
-    kind: Service
-    name: {{ include "npdbchart.fullname" . }}-nginx
-  port:
-    targetPort: http
-  tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Allow
-{{- end }}

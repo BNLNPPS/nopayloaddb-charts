@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-django
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: django
+  template:
+    metadata:
+      labels:
+        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: django
+    spec:
+      initContainers:
+      - name: django-migrations
+        image: {{ .Values.django_docker_image }}
+        imagePullPolicy: "IfNotPresent"
+        command: ["/bin/sh", "-c"]
+        args:
+        - python3 manage.py makemigrations cdb_rest && python3 manage.py migrate cdb_rest
+        env:
+        - name: POSTGRES_HOST_W
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_W
+          value: {{ .Values.dbname_w }}
+        - name: POSTGRES_USER_W
+          value: {{ .Values.dbuser_w }}
+        - name: POSTGRES_PASSWORD_W
+          value: {{ .Values.dbpassword_w }}
+        - name: POSTGRES_PORT_W
+          value: "6432"
+        - name: POSTGRES_HOST_R1
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_R1
+          value: {{ .Values.dbname_r1 }}
+        - name: POSTGRES_USER_R1
+          value: {{ .Values.dbuser_r1 }}
+        - name: POSTGRES_PASSWORD_R1
+          value: {{ .Values.dbpassword_r1 }}
+        - name: POSTGRES_PORT_R1
+          value: "6432"
+        - name: POSTGRES_HOST_R2
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_R2
+          value: {{ .Values.dbname_r2 }}
+        - name: POSTGRES_USER_R2
+          value: {{ .Values.dbuser_r2 }}
+        - name: POSTGRES_PASSWORD_R2
+          value: {{ .Values.dbpassword_r2 }}
+        - name: POSTGRES_PORT_R2
+          value: "6432"
+      containers:
+      - name: django
+        image: {{ .Values.django_docker_image }}
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - python3 manage.py makemigrations cdb_rest; python3 manage.py migrate cdb_rest
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          failureThreshold: 1
+          timeoutSeconds: 120
+        env:
+        - name: POSTGRES_HOST_W
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_W
+          value: {{ .Values.dbname_w }}
+        - name: POSTGRES_USER_W
+          value: {{ .Values.dbuser_w }}
+        - name: POSTGRES_PASSWORD_W
+          value: {{ .Values.dbpassword_w }}
+        - name: POSTGRES_PORT_W
+          value: "6432"
+        - name: POSTGRES_HOST_R1
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_R1
+          value: {{ .Values.dbname_r1 }}
+        - name: POSTGRES_USER_R1
+          value: {{ .Values.dbuser_r1 }}
+        - name: POSTGRES_PASSWORD_R1
+          value: {{ .Values.dbpassword_r1 }}
+        - name: POSTGRES_PORT_R1
+          value: "6432"
+        - name: POSTGRES_HOST_R2
+          value: {{ include "npdbchart.fullname" . }}-pgbouncer.{{ .Values.project }}.svc.cluster.local
+        - name: POSTGRES_DB_R2
+          value: {{ .Values.dbname_r2 }}
+        - name: POSTGRES_USER_R2
+          value: {{ .Values.dbuser_r2 }}
+        - name: POSTGRES_PASSWORD_R2
+          value: {{ .Values.dbpassword_r2 }}
+        - name: POSTGRES_PORT_R2
+          value: "6432"
+        volumeMounts:
+        - name: run
+          mountPath: /var/run
+        - name: varlog
+          mountPath: /var/log
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: varlog
+          emptyDir: {}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-django
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  selector:
+    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+  ports:
+    - name: "tcp-8000"
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

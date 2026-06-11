@@ -1,8 +1,18 @@
+# Deploy with:
+#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb \
+#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
+#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+#
+# For persistent storage, uncomment the PVC block below and add PVC_NAME:
+#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb PVC_NAME=my-pvc \
+#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
+#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+---
 apiVersion: v1
 kind: Service
 metadata:
   name: b2testpsql-primary-headless
-  namespace: belle2-cdb
+  namespace: ${NAMESPACE}
 spec:
   clusterIP: None
   ports:
@@ -10,36 +20,36 @@ spec:
       targetPort: 5432
       name: postgres
   selector:
-    app: b2testpsql-primary
+    app: ${INSTANCE_NAME}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: b2testpsql-primary
-  namespace: belle2-cdb
+  namespace: ${NAMESPACE}
 spec:
   ports:
     - port: 5432
       targetPort: 5432
       name: postgres
   selector:
-    app: b2testpsql-primary
+    app: ${INSTANCE_NAME}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: b2testpsql-primary
-  namespace: belle2-cdb
+  name: ${INSTANCE_NAME}
+  namespace: ${NAMESPACE}
 spec:
   serviceName: b2testpsql-primary-headless
   replicas: 1
   selector:
     matchLabels:
-      app: b2testpsql-primary
+      app: ${INSTANCE_NAME}
   template:
     metadata:
       labels:
-        app: b2testpsql-primary
+        app: ${INSTANCE_NAME}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -49,7 +59,7 @@ spec:
         - name: postgres-logs
           emptyDir: {}
       containers:
-        - name: b2testpsql
+        - name: ${INSTANCE_NAME}
           image: registry.redhat.io/rhel9/postgresql-15
           args:
             - "-c"
@@ -69,7 +79,7 @@ spec:
               name: postgres
           env:
             - name: POSTGRESQL_DATABASE
-              value: conditions
+              value: "${POSTGRESQL_DATABASE}"
             - name: POSTGRESQL_USER
               valueFrom:
                 secretKeyRef:
