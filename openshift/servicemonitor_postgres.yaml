@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: b2testpsql-postgres
+  namespace: ${NAMESPACE}
+  labels:
+    app: postgres-monitoring
+spec:
+  selector:
+    matchLabels:
+      metrics-target: postgres
+  namespaceSelector:
+    matchNames:
+      - ${NAMESPACE}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

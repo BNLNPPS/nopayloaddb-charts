@@ -8,12 +8,49 @@
 #     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
 #     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b2testpsql-primary-headless
+  namespace: ${NAMESPACE}
+spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+    - port: 9187
+      targetPort: 9187
+      name: metrics
+  selector:
+    app: ${INSTANCE_NAME}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b2testpsql-primary
+  namespace: ${NAMESPACE}
+  labels:
+    metrics-target: postgres
+    postgres-role: primary
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+    - port: 9187
+      targetPort: 9187
+      name: metrics
+  selector:
+    app: ${INSTANCE_NAME}
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: ${INSTANCE_NAME}
   namespace: ${NAMESPACE}
 spec:
+  serviceName: b2testpsql-primary-headless
   replicas: 1
   selector:
     matchLabels:
@@ -27,18 +64,41 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: postgres-logs
+          emptyDir: {}
       containers:
         - name: ${INSTANCE_NAME}
           image: registry.redhat.io/rhel9/postgresql-15
+          args:
+            - "-c"
+            - "shared_preload_libraries=pg_stat_statements"
+            - "-c"
+            - "pg_stat_statements.track=all"
+            - "-c"
+            - "log_min_duration_statement=500"
+            - "-c"
+            - "logging_collector=on"
+            - "-c"
+            - "log_directory=/var/log/postgresql"
+            - "-c"
+            - "log_filename=postgresql-%Y-%m-%d.log"
           ports:
             - containerPort: 5432
+              name: postgres
           env:
             - name: POSTGRESQL_DATABASE
               value: "${POSTGRESQL_DATABASE}"
             - name: POSTGRESQL_USER
-              value: "${POSTGRESQL_USER}"
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: username
             - name: POSTGRESQL_PASSWORD
-              value: "${POSTGRESQL_PASSWORD}"
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: password
           resources:
             requests:
               cpu: "2"
@@ -49,22 +109,24 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
-      volumes:
-        - name: postgres-data
-          # Option 1: Persistent storage (uncomment below, comment out emptyDir)
-          # persistentVolumeClaim:
-          #   claimName: ${PVC_NAME}
-          # Option 2: Ephemeral storage (no PVC required)
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ${INSTANCE_NAME}
-  namespace: ${NAMESPACE}
-spec:
-  ports:
-    - port: 5432
-      targetPort: 5432
-  selector:
-    app: ${INSTANCE_NAME}
+            - name: postgres-logs
+              mountPath: /var/log/postgresql
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+          ports:
+            - containerPort: 9187
+              name: metrics
+          env:
+            - name: DATA_SOURCE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-exporter-dsn
+                  key: dsn
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
