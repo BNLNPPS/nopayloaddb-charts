@@ -9,6 +9,9 @@ spec:
     - port: 5432
       targetPort: 5432
       name: postgres
+    - port: 9187
+      targetPort: 9187
+      name: metrics
   selector:
     app: b2testpsql-replica
 ---
@@ -17,11 +20,17 @@ kind: Service
 metadata:
   name: b2testpsql-replica
   namespace: belle2-cdb
+  labels:
+    metrics-target: postgres
+    postgres-role: replica
 spec:
   ports:
     - port: 5432
       targetPort: 5432
       name: postgres
+    - port: 9187
+      targetPort: 9187
+      name: metrics
   selector:
     app: b2testpsql-replica
 ---
@@ -42,12 +51,12 @@ spec:
         app: b2testpsql-replica
     spec:
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       initContainers:
         - name: seed-from-primary
-          image: registry.redhat.io/rhel9/postgresql-15
+          image: postgres:15
           command:
             - /bin/bash
             - -ec
@@ -80,7 +89,7 @@ spec:
               mountPath: /var/lib/pgsql/data
       containers:
         - name: postgres
-          image: registry.redhat.io/rhel9/postgresql-15
+          image: postgres:15
           ports:
             - containerPort: 5432
               name: postgres
@@ -107,6 +116,17 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+          ports:
+            - containerPort: 9187
+              name: metrics
+          env:
+            - name: DATA_SOURCE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-exporter-dsn
+                  key: dsn
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
