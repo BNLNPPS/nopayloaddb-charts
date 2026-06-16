@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: b2testpsql-replica-headless
-  namespace: belle2-cdb
+  namespace: ${NAMESPACE}
 spec:
   clusterIP: None
   ports:
@@ -19,7 +19,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: b2testpsql-replica
-  namespace: belle2-cdb
+  namespace: ${NAMESPACE}
   labels:
     metrics-target: postgres
     postgres-role: replica
@@ -38,7 +38,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: b2testpsql-replica
-  namespace: belle2-cdb
+  namespace: ${NAMESPACE}
 spec:
   serviceName: b2testpsql-replica-headless
   replicas: 1
@@ -54,6 +54,12 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: postgres-logs
+          emptyDir: {}
+        - name: promtail-config
+          configMap:
+            name: promtail-config
       initContainers:
         - name: seed-from-primary
           image: postgres:15
@@ -66,7 +72,7 @@ spec:
               fi
               rm -rf /var/lib/pgsql/data/*
               PGPASSWORD="${POSTGRESQL_PASSWORD}" pg_basebackup \
-                -h b2testpsql-primary.belle2-cdb.svc.cluster.local \
+                -h b2testpsql-primary.${NAMESPACE}.svc.cluster.local \
                 -U "${POSTGRESQL_USER}" \
                 -D /var/lib/pgsql/data \
                 --wal-method=stream \
@@ -90,6 +96,15 @@ spec:
       containers:
         - name: postgres
           image: postgres:15
+          args:
+            - "-c"
+            - "log_min_duration_statement=500"
+            - "-c"
+            - "logging_collector=on"
+            - "-c"
+            - "log_directory=/var/log/postgresql"
+            - "-c"
+            - "log_filename=postgresql-%Y-%m-%d.log"
           ports:
             - containerPort: 5432
               name: postgres
@@ -116,6 +131,8 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
+            - name: postgres-logs
+              mountPath: /var/log/postgresql
         - name: postgres-exporter
           image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
           ports:
@@ -127,6 +144,15 @@ spec:
                 secretKeyRef:
                   name: b2testpsql-exporter-dsn
                   key: dsn
+        - name: promtail
+          image: grafana/promtail:2.9.0
+          args:
+            - "-config.file=/etc/promtail/promtail-config.yaml"
+          volumeMounts:
+            - name: postgres-logs
+              mountPath: /var/log/postgresql
+            - name: promtail-config
+              mountPath: /etc/promtail
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
