@@ -2,7 +2,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: promtail-config
-  namespace: <project>
+  namespace: ${NAMESPACE}
 data:
   promtail-config.yaml: |
     server:
@@ -13,7 +13,7 @@ data:
       filename: /tmp/positions.yaml
 
     clients:
-      - url: http://loki.<project>.svc.cluster.local:3100/loki/api/v1/push
+      - url: http://loki.${NAMESPACE}.svc.cluster.local:3100/loki/api/v1/push
         tenant_id: default
 
     scrape_configs:
@@ -31,3 +31,15 @@ data:
             labels:
               job: nginx
               __path__: /var/log/nginx/*.access.log
+      - job_name: postgres-slow-queries
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: postgres
+              __path__: /var/log/postgresql/*.log
+        pipeline_stages:
+          - regex:
+              expression: 'duration: (?P<duration_ms>[\\d.]+) ms'
+          - labels:
+              duration_ms:
