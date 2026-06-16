@@ -30,6 +30,9 @@ kind: Service
 metadata:
   name: b2testpsql-primary
   namespace: ${NAMESPACE}
+  labels:
+    metrics-target: postgres
+    postgres-role: primary
 spec:
   ports:
     - port: 5432
@@ -64,6 +67,9 @@ spec:
       volumes:
         - name: postgres-logs
           emptyDir: {}
+        - name: promtail-config
+          configMap:
+            name: promtail-config
       containers:
         - name: ${INSTANCE_NAME}
           image: registry.redhat.io/rhel9/postgresql-15
@@ -119,6 +125,15 @@ spec:
                 secretKeyRef:
                   name: b2testpsql-exporter-dsn
                   key: dsn
+        - name: promtail
+          image: grafana/promtail:2.9.0
+          args:
+            - "-config.file=/etc/promtail/promtail-config.yaml"
+          volumeMounts:
+            - name: postgres-logs
+              mountPath: /var/log/postgresql
+            - name: promtail-config
+              mountPath: /etc/promtail
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
