@@ -1,0 +1,70 @@
+# Deploy with:
+#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb \
+#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
+#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+#
+# For persistent storage, uncomment the PVC block below and add PVC_NAME:
+#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb PVC_NAME=my-pvc \
+#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
+#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${INSTANCE_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${INSTANCE_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${INSTANCE_NAME}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ${INSTANCE_NAME}
+          image: registry.redhat.io/rhel9/postgresql-15
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRESQL_DATABASE
+              value: "${POSTGRESQL_DATABASE}"
+            - name: POSTGRESQL_USER
+              value: "${POSTGRESQL_USER}"
+            - name: POSTGRESQL_PASSWORD
+              value: "${POSTGRESQL_PASSWORD}"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/pgsql/data
+      volumes:
+        - name: postgres-data
+          # Option 1: Persistent storage (uncomment below, comment out emptyDir)
+          # persistentVolumeClaim:
+          #   claimName: ${PVC_NAME}
+          # Option 2: Ephemeral storage (no PVC required)
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${INSTANCE_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: ${INSTANCE_NAME}
