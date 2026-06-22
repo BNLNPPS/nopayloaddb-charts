@@ -8,20 +8,48 @@
 #     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
 #     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b2testpsql-primary-headless
+  namespace: ${NAMESPACE}
+spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: b2testpsql-primary
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b2testpsql-primary
+  namespace: ${NAMESPACE}
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: b2testpsql-primary
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: ${INSTANCE_NAME}
   namespace: ${NAMESPACE}
 spec:
+  serviceName: b2testpsql-primary-headless
   replicas: 1
   selector:
     matchLabels:
-      app: ${INSTANCE_NAME}
+      app: b2testpsql-primary
   template:
     metadata:
       labels:
-        app: ${INSTANCE_NAME}
+        app: b2testpsql-primary
     spec:
       securityContext:
         runAsNonRoot: true
@@ -32,13 +60,20 @@ spec:
           image: registry.redhat.io/rhel9/postgresql-15
           ports:
             - containerPort: 5432
+              name: postgres
           env:
             - name: POSTGRESQL_DATABASE
               value: "${POSTGRESQL_DATABASE}"
             - name: POSTGRESQL_USER
-              value: "${POSTGRESQL_USER}"
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: username
             - name: POSTGRESQL_PASSWORD
-              value: "${POSTGRESQL_PASSWORD}"
+              valueFrom:
+                secretKeyRef:
+                  name: b2testpsql-credentials
+                  key: password
           resources:
             requests:
               cpu: "2"
@@ -49,22 +84,11 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
-      volumes:
-        - name: postgres-data
-          # Option 1: Persistent storage (uncomment below, comment out emptyDir)
-          # persistentVolumeClaim:
-          #   claimName: ${PVC_NAME}
-          # Option 2: Ephemeral storage (no PVC required)
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ${INSTANCE_NAME}
-  namespace: ${NAMESPACE}
-spec:
-  ports:
-    - port: 5432
-      targetPort: 5432
-  selector:
-    app: ${INSTANCE_NAME}
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
