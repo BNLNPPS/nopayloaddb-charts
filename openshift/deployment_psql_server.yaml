@@ -45,11 +45,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ${INSTANCE_NAME}
+      app: b2testpsql-primary
   template:
     metadata:
       labels:
-        app: ${INSTANCE_NAME}
+        app: b2testpsql-primary
     spec:
       securityContext:
         runAsNonRoot: true
