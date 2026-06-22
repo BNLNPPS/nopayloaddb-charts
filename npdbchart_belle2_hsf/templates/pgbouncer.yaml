@@ -64,6 +64,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: pgbouncer
     spec:
+      {{- if .Values.pgbouncer_node }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -73,6 +74,7 @@ spec:
                 operator: In
                 values:
                 - {{ .Values.pgbouncer_node }}
+      {{- end }}
       containers:
       - name: pgbouncer
         image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-pgbouncer:{{ .Values.pgbouncer_docker_image | splitList ":" | last }}"

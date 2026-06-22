@@ -160,13 +160,17 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: nginx
     spec:
-      securityContext:
-        runAsUser: 101
-        fsGroup: 1000860000
+      #securityContext:
+      #  runAsUser: 101
+      #  fsGroup: 1000860000
       volumes:
         - name: files-volume
+          {{- if .Values.pvc_payload_server }}
           persistentVolumeClaim:
             claimName: {{ .Values.pvc_payload_server }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
         - name: nginx-conf-volume
           configMap:
             name: {{ include "npdbchart.fullname" . }}-nginx-conf
@@ -244,7 +248,7 @@ metadata:
   annotations:
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  host: {{ .Values.appname }}.{{ .Values.domain }}
+  #host: {{ .Values.appname }}.{{ .Values.domain }}
   to:
     kind: Service
     name: {{ include "npdbchart.fullname" . }}-nginx
