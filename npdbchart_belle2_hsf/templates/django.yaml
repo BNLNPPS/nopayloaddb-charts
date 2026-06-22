@@ -23,7 +23,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: django
 spec:
-  replicas: 1
+  replicas: {{ .Values.django_replicas | default 1 }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -34,6 +34,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: django
     spec:
+      {{- if .Values.exclude_node }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -43,6 +44,7 @@ spec:
                 operator: NotIn
                 values:
                 - {{ .Values.exclude_node }}
+      {{- end }}
       containers:
       - name: django
         image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-django:{{ .Values.django_docker_image | splitList ":" | last }}"

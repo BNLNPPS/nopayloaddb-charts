@@ -35,6 +35,8 @@ pgbouncer_node: os-worker00.domain
 payload_server_alias: payload_server_alias_name
 dbreplicahost: hostname
 jwt_secret: secret
+#Replicas
+django_replicas: 1
 #Optional features
 promtail_enabled: false
 migrations_enabled: false
