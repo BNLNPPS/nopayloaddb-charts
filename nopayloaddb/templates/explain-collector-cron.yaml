@@ -1,0 +1,51 @@
+{{- if .Values.explain_collector.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: explain-collector
+spec:
+  schedule: {{ .Values.explain_collector.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: explain-collector
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: explain-collector
+            image: {{ .Values.explain_collector.image | default .Values.django_docker_image }}
+            imagePullPolicy: Always
+            command:
+            - python
+            - manage.py
+            - collect_explain_plans
+            - --db-alias
+            - {{ .Values.explain_collector.db_alias | quote }}
+            - --once
+            env:
+            - name: POSTGRES_DB_W
+              value: {{ .Values.dbname | quote }}
+            - name: POSTGRES_USER_W
+              value: {{ .Values.dbuser | quote }}
+            - name: POSTGRES_PASSWORD_W
+              value: {{ .Values.dbpassword | quote }}
+            - name: POSTGRES_HOST_W
+              value: {{ .Values.dbhost | quote }}
+            - name: POSTGRES_PORT_W
+              value: "5432"
+            - name: POSTGRES_DB_R1
+              value: {{ .Values.dbname | quote }}
+            - name: POSTGRES_USER_R1
+              value: {{ .Values.dbuser | quote }}
+            - name: POSTGRES_PASSWORD_R1
+              value: {{ .Values.dbpassword | quote }}
+            - name: POSTGRES_HOST_R1
+              value: {{ .Values.explain_collector.read_host | default .Values.dbhost | quote }}
+            - name: POSTGRES_PORT_R1
+              value: "5432"
+{{- end }}
