@@ -98,6 +98,10 @@ spec:
           value: {{ .Values.permission_plugin_class | default "cdb_rest.permissions_plugins.belle2.Belle2PermissionPlugin" | quote }}
         - name: CDB_AUTH_CLASS
           value: {{ .Values.cdb_auth_class | default "" | quote }}
+        {{- if .Values.jwt_secret }}
+        - name: JWT_SECRET
+          value: {{ .Values.jwt_secret | quote }}
+        {{- end }}
         volumeMounts:
         - name: run
           mountPath: /var/run
