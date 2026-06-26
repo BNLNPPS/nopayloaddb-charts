@@ -92,6 +92,16 @@ spec:
           value: {{ .Values.dbpassword_r2 }}
         - name: POSTGRES_PORT_R2
           value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
+        - name: CDB_IOV_MODE
+          value: {{ .Values.cdb_iov_mode | default "continuous" | quote }}
+        - name: PERMISSION_PLUGIN_CLASS
+          value: {{ .Values.permission_plugin_class | default "cdb_rest.permissions_plugins.belle2.Belle2PermissionPlugin" | quote }}
+        - name: CDB_AUTH_CLASS
+          value: {{ .Values.cdb_auth_class | default "" | quote }}
+        {{- if .Values.jwt_secret }}
+        - name: JWT_SECRET
+          value: {{ .Values.jwt_secret | quote }}
+        {{- end }}
         volumeMounts:
         - name: run
           mountPath: /var/run

@@ -35,6 +35,11 @@ pgbouncer_node: os-worker00.domain
 payload_server_alias: payload_server_alias_name
 dbreplicahost: hostname
 jwt_secret: secret
+#CDB settings
+# cdb_iov_mode options: continuous, discrete
+cdb_iov_mode: continuous
+permission_plugin_class: cdb_rest.permissions_plugins.DummyPermissionPlugin
+cdb_auth_class: ""
 #Replicas
 django_replicas: 1
 #Optional features
