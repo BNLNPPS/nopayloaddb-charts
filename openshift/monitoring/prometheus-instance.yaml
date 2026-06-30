@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: k8s
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  serviceAccountName: prometheus
+  retention: 24h
+  resources:
+    requests:
+      cpu: 200måç
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  storage:
+    emptyDir: {}
+
+  # Allow scraping ServiceMonitors from any namespace.
+  serviceMonitorSelector: {}
+  serviceMonitorNamespaceSelector: {}
+
+  # Keep defaults explicit for future extension.
+  podMonitorSelector: {}
+  podMonitorNamespaceSelector: {}
+  ruleSelector: {}
+  ruleNamespaceSelector: {}
