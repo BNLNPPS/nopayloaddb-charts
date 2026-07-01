@@ -98,6 +98,15 @@ data:
                 proxy_redirect off;
             }
 
+            location /dbstore {
+                root /usr/share/nginx/html;
+                proxy_hide_header Cache-Control;
+                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                limit_except GET HEAD {
+                    deny all;
+                }
+            }
+
             location / {
                 proxy_pass http://java;
                 proxy_cache_valid 200 302 60s;
@@ -118,6 +127,15 @@ data:
                 proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             }
 
+            location /dbstore {
+                root /usr/share/nginx/html;
+                proxy_hide_header Cache-Control;
+                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                limit_except GET HEAD {
+                    deny all;
+                }
+            }
+
             location / {
                 proxy_pass http://django;
                 proxy_redirect off;
@@ -130,7 +148,7 @@ data:
             listen 8080;
             server_name {{ .Values.appname_files }}.{{ .Values.domain }};
 
-            location / {
+            location /dbstore {
                 root /usr/share/nginx/html;
                 proxy_hide_header Cache-Control;
                 add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
