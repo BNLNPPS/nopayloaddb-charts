@@ -23,7 +23,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: django
 spec:
-  replicas: 1
+  replicas: {{ .Values.django_replicas | default 1 }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -34,6 +34,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: django
     spec:
+      {{- if .Values.exclude_node }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -43,6 +44,7 @@ spec:
                 operator: NotIn
                 values:
                 - {{ .Values.exclude_node }}
+      {{- end }}
       containers:
       - name: django
         image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-django:{{ .Values.django_docker_image | splitList ":" | last }}"
@@ -90,6 +92,16 @@ spec:
           value: {{ .Values.dbpassword_r2 }}
         - name: POSTGRES_PORT_R2
           value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
+        - name: CDB_IOV_MODE
+          value: {{ .Values.cdb_iov_mode | default "continuous" | quote }}
+        - name: PERMISSION_PLUGIN_CLASS
+          value: {{ .Values.permission_plugin_class | default "cdb_rest.permissions_plugins.belle2.Belle2PermissionPlugin" | quote }}
+        - name: CDB_AUTH_CLASS
+          value: {{ .Values.cdb_auth_class | default "" | quote }}
+        {{- if .Values.jwt_secret }}
+        - name: JWT_SECRET
+          value: {{ .Values.jwt_secret | quote }}
+        {{- end }}
         volumeMounts:
         - name: run
           mountPath: /var/run
