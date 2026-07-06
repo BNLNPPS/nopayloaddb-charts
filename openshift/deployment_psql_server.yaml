@@ -61,7 +61,7 @@ spec:
         app: b2testpsql-primary
     spec:
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       volumes:
@@ -72,7 +72,32 @@ spec:
             name: promtail-config
       containers:
         - name: ${INSTANCE_NAME}
-          image: registry.redhat.io/rhel9/postgresql-15
+          image: postgres:15.9
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -ec
+                  - |
+                    set +e
+                    HBA_FILE=/var/lib/postgresql/data/pg_hba.conf
+                    for i in $(seq 1 30); do
+                      [ -f "$HBA_FILE" ] && break
+                      sleep 1
+                    done
+                    if [ -f "$HBA_FILE" ]; then
+                      grep -Eq '^host[[:space:]]+replication[[:space:]]+all[[:space:]]+0\.0\.0\.0/0[[:space:]]+scram-sha-256$' "$HBA_FILE" || \
+                        echo 'host replication all 0.0.0.0/0 scram-sha-256' >> "$HBA_FILE"
+                      grep -Eq '^host[[:space:]]+replication[[:space:]]+all[[:space:]]+::/0[[:space:]]+scram-sha-256$' "$HBA_FILE" || \
+                        echo 'host replication all ::/0 scram-sha-256' >> "$HBA_FILE"
+                      if [ -s /var/lib/postgresql/data/postmaster.pid ]; then
+                        PID=$(head -n1 /var/lib/postgresql/data/postmaster.pid)
+                        kill -HUP "$PID" 2>/dev/null
+                      fi
+                    fi
+
+                    exit 0
           args:
             - "-c"
             - "shared_preload_libraries=pg_stat_statements"
@@ -90,14 +115,14 @@ spec:
             - containerPort: 5432
               name: postgres
           env:
-            - name: POSTGRESQL_DATABASE
+            - name: POSTGRES_DB
               value: "${POSTGRESQL_DATABASE}"
-            - name: POSTGRESQL_USER
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: b2testpsql-credentials
                   key: username
-            - name: POSTGRESQL_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: b2testpsql-credentials
@@ -111,7 +136,7 @@ spec:
               memory: "8Gi"
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/pgsql/data
+              mountPath: /var/lib/postgresql/data
             - name: postgres-logs
               mountPath: /var/log/postgresql
         - name: postgres-exporter
