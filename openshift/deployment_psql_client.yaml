@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sql-client
-  namespace: belle2-cdb
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
