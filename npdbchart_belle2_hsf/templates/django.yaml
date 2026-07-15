@@ -102,6 +102,10 @@ spec:
         - name: JWT_SECRET
           value: {{ .Values.jwt_secret | quote }}
         {{- end }}
+        {{- if .Values.cdb_payload_base_url }}
+        - name: CDB_PAYLOAD_BASE_URL
+          value: {{ .Values.cdb_payload_base_url | quote }}
+        {{- end }}
         volumeMounts:
         - name: run
           mountPath: /var/run

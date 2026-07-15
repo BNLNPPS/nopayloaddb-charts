@@ -38,6 +38,7 @@ jwt_secret: secret
 #CDB settings
 # cdb_iov_mode options: continuous, discrete
 cdb_iov_mode: continuous
+cdb_payload_base_url: http://payload-base-url
 permission_plugin_class: cdb_rest.permissions_plugins.DummyPermissionPlugin
 cdb_auth_class: ""
 #Replicas

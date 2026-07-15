@@ -67,32 +67,33 @@ spec:
             - /bin/bash
             - -ec
             - |
-              if [ -s /var/lib/pgsql/data/PG_VERSION ]; then
+              if [ -s /var/lib/postgresql/data/PG_VERSION ]; then
                 exit 0
               fi
-              rm -rf /var/lib/pgsql/data/*
-              PGPASSWORD="${POSTGRESQL_PASSWORD}" pg_basebackup \
+              rm -rf /var/lib/postgresql/data/*
+              PGPASSWORD="${POSTGRES_PASSWORD}" pg_basebackup \
                 -h b2testpsql-primary.${NAMESPACE}.svc.cluster.local \
-                -U "${POSTGRESQL_USER}" \
-                -D /var/lib/pgsql/data \
+                -U "${POSTGRES_USER}" \
+                -D /var/lib/postgresql/data \
                 --wal-method=stream \
                 --checkpoint=fast
-              touch /var/lib/pgsql/data/standby.signal
-              chmod 700 /var/lib/pgsql/data
+
+              touch /var/lib/postgresql/data/standby.signal
+              chmod 700 /var/lib/postgresql/data
           env:
-            - name: POSTGRESQL_USER
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: b2testpsql-credentials
                   key: username
-            - name: POSTGRESQL_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: b2testpsql-credentials
                   key: password
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/pgsql/data
+              mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
           image: postgres:15
@@ -109,14 +110,14 @@ spec:
             - containerPort: 5432
               name: postgres
           env:
-            - name: POSTGRESQL_DATABASE
+            - name: POSTGRES_DB
               value: conditions
-            - name: POSTGRESQL_USER
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: b2testpsql-credentials
                   key: username
-            - name: POSTGRESQL_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: b2testpsql-credentials
@@ -130,7 +131,7 @@ spec:
               memory: "8Gi"
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/pgsql/data
+              mountPath: /var/lib/postgresql/data
             - name: postgres-logs
               mountPath: /var/log/postgresql
         - name: postgres-exporter
