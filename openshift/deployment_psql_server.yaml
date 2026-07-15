@@ -82,6 +82,10 @@ spec:
                   - |
                     set +e
                     HBA_FILE=/var/lib/postgresql/data/pg_hba.conf
+                    for i in $(seq 1 30); do
+                      [ -f "$HBA_FILE" ] && break
+                      sleep 1
+                    done
                     if [ -f "$HBA_FILE" ]; then
                       grep -Eq '^host[[:space:]]+replication[[:space:]]+all[[:space:]]+0\.0\.0\.0/0[[:space:]]+scram-sha-256$' "$HBA_FILE" || \
                         echo 'host replication all 0.0.0.0/0 scram-sha-256' >> "$HBA_FILE"
