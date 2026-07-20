@@ -6,6 +6,23 @@ Expand the name of the chart.
 {{- end }}
 
 {{/*
+Build the image reference used by a workload. Kubernetes pulls the configured
+image directly, while OpenShift workloads consume the chart-managed ImageStream.
+*/}}
+{{- define "npdbchart.workloadImage" -}}
+{{- if eq .root.Values.platform "openshift" -}}
+{{- printf "image-registry.openshift-image-registry.svc:5000/%s/%s-%s:%s" .root.Release.Namespace (include "npdbchart.fullname" .root) .component .image.tag -}}
+{{- else -}}
+{{- printf "%s:%s" .image.repository .image.tag -}}
+{{- end -}}
+{{- end }}
+
+{{/* Build the external image reference imported by an OpenShift ImageStream. */}}
+{{- define "npdbchart.externalImage" -}}
+{{- printf "%s:%s" .repository .tag -}}
+{{- end }}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.

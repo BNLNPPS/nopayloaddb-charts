@@ -1,0 +1,31 @@
+{{- if eq .Values.platform "openshift" }}
+{{- $components := list (dict "name" "nginx" "image" .Values.images.nginx) }}
+{{- if .Values.use_java }}
+{{- $components = append $components (dict "name" "java" "image" .Values.images.java) }}
+{{- else }}
+{{- $components = append $components (dict "name" "django" "image" .Values.images.django) }}
+{{- end }}
+{{- if .Values.use_pgbouncer }}
+{{- $components = append $components (dict "name" "pgbouncer" "image" .Values.images.pgbouncer) }}
+{{- end }}
+{{- range $index, $component := $components }}
+{{- if $index }}
+---
+{{- end }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ include "npdbchart.fullname" $ }}-{{ $component.name }}
+  labels:
+    {{- include "npdbchart.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component.name }}
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ $component.image.tag | quote }}
+      from:
+        kind: DockerImage
+        name: {{ include "npdbchart.externalImage" $component.image | quote }}
+{{- end }}
+{{- end }}

@@ -1,20 +1,4 @@
 {{- if .Values.use_pgbouncer }}
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: {{ include "npdbchart.fullname" . }}-pgbouncer
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: pgbouncer
-spec:
-  lookupPolicy:
-    local: true
-  tags:
-    - name: {{ .Values.pgbouncer_docker_image | splitList ":" | last | quote }}
-      from:
-        kind: DockerImage
-        name: {{ .Values.pgbouncer_docker_image }}
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -85,8 +69,8 @@ spec:
       {{- end }}
       containers:
       - name: pgbouncer
-        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-pgbouncer:{{ .Values.pgbouncer_docker_image | splitList ":" | last }}"
-        imagePullPolicy: "IfNotPresent"
+        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "pgbouncer" "image" .Values.images.pgbouncer) | quote }}
+        imagePullPolicy: {{ .Values.images.pgbouncer.pullPolicy }}
         ports:
         - containerPort: 6432
         volumeMounts:

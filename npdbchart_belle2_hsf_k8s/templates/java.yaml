@@ -1,20 +1,4 @@
 {{- if .Values.use_java }}
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: {{ include "npdbchart.fullname" . }}-java
-  labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: java
-spec:
-  lookupPolicy:
-    local: true
-  tags:
-    - name: {{ .Values.java_docker_image | splitList ":" | last | quote }}
-      from:
-        kind: DockerImage
-        name: {{ .Values.java_docker_image }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,8 +33,8 @@ spec:
         fsGroup: 50001
       containers:
       - name: java
-        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-java:{{ .Values.java_docker_image | splitList ":" | last }}"
-        imagePullPolicy: "IfNotPresent"
+        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
+        imagePullPolicy: {{ .Values.images.java.pullPolicy }}
         ports:
         - containerPort: 8080
           protocol: TCP
@@ -142,8 +126,8 @@ spec:
         fsGroup: 50001
       containers:
       - name: java-replica
-        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-java:{{ .Values.java_docker_image | splitList ":" | last }}"
-        imagePullPolicy: "IfNotPresent"
+        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
+        imagePullPolicy: {{ .Values.images.java.pullPolicy }}
         ports:
         - containerPort: 8080
           protocol: TCP
