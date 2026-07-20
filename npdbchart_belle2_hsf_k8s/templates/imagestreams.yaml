@@ -1,11 +1,11 @@
 {{- if eq .Values.platform "openshift" }}
 {{- $components := list (dict "name" "nginx" "image" .Values.images.nginx) }}
-{{- if .Values.use_java }}
+{{- if eq .Values.backend.type "java" }}
 {{- $components = append $components (dict "name" "java" "image" .Values.images.java) }}
 {{- else }}
 {{- $components = append $components (dict "name" "django" "image" .Values.images.django) }}
 {{- end }}
-{{- if .Values.use_pgbouncer }}
+{{- if .Values.pgbouncer.enabled }}
 {{- $components = append $components (dict "name" "pgbouncer" "image" .Values.images.pgbouncer) }}
 {{- end }}
 {{- range $index, $component := $components }}

@@ -1,4 +1,4 @@
-{{- if .Values.use_pgbouncer }}
+{{- if .Values.pgbouncer.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,11 +10,11 @@ data:
   pgbouncer.ini: |
     [databases]
     pgbouncer =
-    {{ .Values.dbname_w }} = host={{ .Values.dbhost_w }} port=5432 dbname={{ .Values.dbname_w }}
-    {{ .Values.dbname_r1 }} = host={{ .Values.dbhost_r1 }} port=5432 dbname={{ .Values.dbname_r1 }}
-    {{ .Values.dbname_r2 }} = host={{ .Values.dbhost_r2 }} port=5432 dbname={{ .Values.dbname_r2 }}
+    {{ .Values.database.writer.name }} = host={{ .Values.database.writer.host }} port={{ .Values.database.writer.port }} dbname={{ .Values.database.writer.name }}
+    {{ .Values.database.reader1.name }} = host={{ .Values.database.reader1.host }} port={{ .Values.database.reader1.port }} dbname={{ .Values.database.reader1.name }}
+    {{ .Values.database.reader2.name }} = host={{ .Values.database.reader2.host }} port={{ .Values.database.reader2.port }} dbname={{ .Values.database.reader2.name }}
     [pgbouncer]
-    admin_users = {{ .Values.dbuser_w }}
+    admin_users = {{ .Values.database.writer.user }}
     ignore_startup_parameters = extra_float_digits
     listen_addr = *
     listen_port = 6432
@@ -29,12 +29,12 @@ data:
     reserve_pool_size = 400
     reserve_pool_timeout = 5
   userlist.txt: |
-    {{ .Values.dbuser_w | quote }} {{ .Values.dbpassword_w | quote }}
-    {{- if ne .Values.dbuser_r1 .Values.dbuser_w }}
-    {{ .Values.dbuser_r1 | quote }} {{ .Values.dbpassword_r1 | quote }}
+    {{ .Values.database.writer.user | quote }} {{ .Values.database.writer.password | quote }}
+    {{- if ne .Values.database.reader1.user .Values.database.writer.user }}
+    {{ .Values.database.reader1.user | quote }} {{ .Values.database.reader1.password | quote }}
     {{- end }}
-    {{- if and (ne .Values.dbuser_r2 .Values.dbuser_w) (ne .Values.dbuser_r2 .Values.dbuser_r1) }}
-    {{ .Values.dbuser_r2 | quote }} {{ .Values.dbpassword_r2 | quote }}
+    {{- if and (ne .Values.database.reader2.user .Values.database.writer.user) (ne .Values.database.reader2.user .Values.database.reader1.user) }}
+    {{ .Values.database.reader2.user | quote }} {{ .Values.database.reader2.password | quote }}
     {{- end }}
 ---
 apiVersion: apps/v1
@@ -45,7 +45,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: pgbouncer
 spec:
-  replicas: 1
+  replicas: {{ .Values.pgbouncer.replicas }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -56,7 +56,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: pgbouncer
     spec:
-      {{- if .Values.pgbouncer_node }}
+      {{- if .Values.pgbouncer.node }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -65,7 +65,7 @@ spec:
               - key: kubernetes.io/hostname
                 operator: In
                 values:
-                - {{ .Values.pgbouncer_node }}
+                - {{ .Values.pgbouncer.node }}
       {{- end }}
       containers:
       - name: pgbouncer

@@ -29,7 +29,7 @@ data:
         # Shared Cache Configuration
         proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:50m max_size=500m inactive=1h use_temp_path=off;
 
-        {{- if .Values.use_java }}
+        {{- if eq .Values.backend.type "java" }}
         # Java API Upstreams
         upstream java {
             server {{ include "npdbchart.fullname" . }}-java:8080 max_conns=150;
@@ -51,10 +51,10 @@ data:
         # --- Metadata API Proxy ---
         server {
             listen 8080;
-            server_name {{ .Values.appname }}.{{ .Values.domain }};
+            server_name {{ .Values.hosts.api }};
 
             proxy_hide_header Cache-Control;
-            add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+            add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
             add_header X-Cache-Status $upstream_cache_status;
             proxy_cache my_cache;
             proxy_ignore_headers "Cache-Control" "Expires";
@@ -63,7 +63,7 @@ data:
             proxy_connect_timeout 1800;
             proxy_send_timeout 1800;
 
-            {{- if .Values.use_java }}
+            {{- if eq .Values.backend.type "java" }}
             location /b2s/rest/v2/globalTagStatus {
                 proxy_pass http://java;
                 proxy_cache_valid 200 302 10h;
@@ -85,7 +85,7 @@ data:
             location /dbstore {
                 root /usr/share/nginx/html;
                 proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
                 limit_except GET HEAD {
                     deny all;
                 }
@@ -114,7 +114,7 @@ data:
             location /dbstore {
                 root /usr/share/nginx/html;
                 proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
                 limit_except GET HEAD {
                     deny all;
                 }
@@ -130,12 +130,12 @@ data:
         # --- Payload Server ---
         server {
             listen 8080;
-            server_name {{ .Values.appname_files }}.{{ .Values.domain }};
+            server_name {{ .Values.hosts.files }};
 
             location /dbstore {
                 root /usr/share/nginx/html;
                 proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx_cache_control_value | quote }};
+                add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
                 limit_except GET HEAD {
                     deny all;
                 }
@@ -151,7 +151,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
 spec:
-  replicas: 1
+  replicas: {{ .Values.nginx.replicas }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -167,9 +167,9 @@ spec:
       #  fsGroup: 1000860000
       volumes:
         - name: files-volume
-          {{- if .Values.pvc_payload_server }}
+          {{- if .Values.storage.payload.existingClaim }}
           persistentVolumeClaim:
-            claimName: {{ .Values.pvc_payload_server }}
+            claimName: {{ .Values.storage.payload.existingClaim }}
           {{- else }}
           emptyDir: {}
           {{- end }}
@@ -189,7 +189,9 @@ spec:
           volumeMounts:
             - name: files-volume
               mountPath: /usr/share/nginx/html
-              subPath: {{ .Values.subPath }}
+              {{- with .Values.storage.payload.subPath }}
+              subPath: {{ . }}
+              {{- end }}
             - name: nginx-conf-volume
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf

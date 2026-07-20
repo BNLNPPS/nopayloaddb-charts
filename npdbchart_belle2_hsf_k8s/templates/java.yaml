@@ -1,4 +1,4 @@
-{{- if .Values.use_java }}
+{{- if eq .Values.backend.type "java" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +7,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: java
 spec:
-  replicas: 5
+  replicas: {{ .Values.java.replicas.writer }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -18,6 +18,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: java
     spec:
+      {{- if .Values.scheduling.excludeNode }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -26,7 +27,8 @@ spec:
               - key: kubernetes.io/hostname
                 operator: NotIn
                 values:
-                - {{ .Values.exclude_node }}
+                - {{ .Values.scheduling.excludeNode }}
+      {{- end }}
       securityContext:
         runAsUser: 50001
         runAsGroup: 50001
@@ -48,9 +50,9 @@ spec:
           failureThreshold: 1
         env:
         - name: PGSERVER
-          value: {{ .Values.dbhost_w }}
+          value: {{ .Values.database.writer.host }}
         - name: PGPORT
-          value: "5432"
+          value: {{ .Values.database.writer.port | quote }}
         - name: B2S_APP_LOGGING_LEVEL
           value: INFO
         - name: B2S_SERVER_LOGGING_LEVEL
@@ -62,7 +64,7 @@ spec:
         - name: B2S_JWT_AUTH
           value: "true"
         - name: B2S_AUTH_SECRET
-          value: {{ .Values.jwt_secret | quote }}
+          value: {{ .Values.cdb.jwtSecret | quote }}
         - name: B2S_SERVICES_PORT
           value: "8080"
         - name: B2S_SWAGGER_HOST_PORT
@@ -74,7 +76,7 @@ spec:
         - name: B2S_MAX_MEM
           value: "5096"
         - name: B2S_PAYLOAD_SERVER
-          value: {{ .Values.payload_server_alias }}
+          value: {{ .Values.java.payloadServerAlias | quote }}
         - name: B2S_PAYLOAD_SERVER_SECURE
           value: "true"
         - name: B2S_PAYLOAD_SERVER_ROOT_PATH
@@ -82,7 +84,9 @@ spec:
         volumeMounts:
         - mountPath: /srv
           name: payloadfs
-          subPath: {{ .Values.subPath }}
+          {{- with .Values.storage.payload.subPath }}
+          subPath: {{ . }}
+          {{- end }}
         resources:
           requests:
             cpu: "4"
@@ -90,7 +94,7 @@ spec:
       volumes:
         - name: payloadfs
           persistentVolumeClaim:
-            claimName: {{ .Values.pvc_payload_server }}
+            claimName: {{ .Values.storage.payload.existingClaim }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -100,7 +104,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: java-replica
 spec:
-  replicas: 2
+  replicas: {{ .Values.java.replicas.reader }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -111,6 +115,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: java-replica
     spec:
+      {{- if .Values.scheduling.excludeNode }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -119,7 +124,8 @@ spec:
               - key: kubernetes.io/hostname
                 operator: NotIn
                 values:
-                - {{ .Values.exclude_node }}
+                - {{ .Values.scheduling.excludeNode }}
+      {{- end }}
       securityContext:
         runAsUser: 50001
         runAsGroup: 50001
@@ -141,9 +147,9 @@ spec:
           failureThreshold: 1
         env:
         - name: PGSERVER
-          value: {{ .Values.dbreplicahost }}
+          value: {{ .Values.database.reader1.host }}
         - name: PGPORT
-          value: "5432"
+          value: {{ .Values.database.reader1.port | quote }}
         - name: B2S_APP_LOGGING_LEVEL
           value: INFO
         - name: B2S_SERVER_LOGGING_LEVEL
@@ -155,7 +161,7 @@ spec:
         - name: B2S_JWT_AUTH
           value: "true"
         - name: B2S_AUTH_SECRET
-          value: {{ .Values.jwt_secret | quote }}
+          value: {{ .Values.cdb.jwtSecret | quote }}
         - name: B2S_SERVICES_PORT
           value: "8080"
         - name: B2S_SWAGGER_HOST_PORT
@@ -167,7 +173,7 @@ spec:
         - name: B2S_MAX_MEM
           value: "5096"
         - name: B2S_PAYLOAD_SERVER
-          value: {{ .Values.payload_server_alias }}
+          value: {{ .Values.java.payloadServerAlias | quote }}
         - name: B2S_PAYLOAD_SERVER_SECURE
           value: "true"
         - name: B2S_PAYLOAD_SERVER_ROOT_PATH
@@ -175,7 +181,9 @@ spec:
         volumeMounts:
         - mountPath: /srv
           name: payloadfs
-          subPath: {{ .Values.subPath }}
+          {{- with .Values.storage.payload.subPath }}
+          subPath: {{ . }}
+          {{- end }}
         resources:
           requests:
             cpu: "4"
@@ -183,7 +191,7 @@ spec:
       volumes:
         - name: payloadfs
           persistentVolumeClaim:
-            claimName: {{ .Values.pvc_payload_server }}
+            claimName: {{ .Values.storage.payload.existingClaim }}
 ---
 kind: Service
 apiVersion: v1

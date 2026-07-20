@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["platform", "backend", "hosts", "images", "database"],
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": ["kubernetes", "openshift"]
+    },
+    "backend": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["django", "java"]
+        }
+      }
+    },
+    "hosts": {
+      "type": "object",
+      "required": ["api", "files"],
+      "properties": {
+        "api": {"type": "string", "minLength": 1},
+        "files": {"type": "string", "minLength": 1}
+      }
+    },
+    "images": {
+      "type": "object",
+      "required": ["django", "java", "nginx", "pgbouncer", "promtail"],
+      "properties": {
+        "django": {"$ref": "#/$defs/image"},
+        "java": {"$ref": "#/$defs/image"},
+        "nginx": {"$ref": "#/$defs/image"},
+        "pgbouncer": {"$ref": "#/$defs/image"},
+        "promtail": {"$ref": "#/$defs/image"}
+      }
+    },
+    "database": {
+      "type": "object",
+      "required": ["writer", "reader1", "reader2"],
+      "properties": {
+        "writer": {"$ref": "#/$defs/databaseConnection"},
+        "reader1": {"$ref": "#/$defs/databaseConnection"},
+        "reader2": {"$ref": "#/$defs/databaseConnection"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "backend": {
+            "properties": {
+              "type": {"const": "java"}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "storage": {
+            "properties": {
+              "payload": {
+                "properties": {
+                  "existingClaim": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "image": {
+      "type": "object",
+      "required": ["repository", "tag", "pullPolicy"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "minLength": 1},
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    },
+    "databaseConnection": {
+      "type": "object",
+      "required": ["host", "port", "name", "user", "password"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "name": {"type": "string", "minLength": 1},
+        "user": {"type": "string", "minLength": 1},
+        "password": {"type": "string"}
+      }
+    }
+  }
+}

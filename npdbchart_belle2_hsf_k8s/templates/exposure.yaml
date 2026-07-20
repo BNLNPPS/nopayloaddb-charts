@@ -19,7 +19,7 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    - host: {{ printf "%s.%s" .Values.appname .Values.domain | quote }}
+    - host: {{ .Values.hosts.api | quote }}
       http:
         paths:
           - path: /
@@ -29,7 +29,7 @@ spec:
                 name: {{ include "npdbchart.fullname" . }}-nginx
                 port:
                   name: http
-    - host: {{ printf "%s.%s" .Values.appname_files .Values.domain | quote }}
+    - host: {{ .Values.hosts.files | quote }}
       http:
         paths:
           - path: /
@@ -40,7 +40,7 @@ spec:
                 port:
                   name: http
 {{- else if and (eq .Values.platform "openshift") .Values.route.enabled }}
-{{- $hosts := list (dict "name" "api" "host" (printf "%s.%s" .Values.appname .Values.domain)) (dict "name" "files" "host" (printf "%s.%s" .Values.appname_files .Values.domain)) }}
+{{- $hosts := list (dict "name" "api" "host" .Values.hosts.api) (dict "name" "files" "host" .Values.hosts.files) }}
 {{- range $index, $host := $hosts }}
 {{- if $index }}
 ---

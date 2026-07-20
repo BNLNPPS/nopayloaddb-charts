@@ -1,4 +1,4 @@
-{{- if not .Values.use_java }}
+{{- if eq .Values.backend.type "django" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +7,7 @@ metadata:
     {{- include "npdbchart.labels" . | nindent 4 }}
     app.kubernetes.io/component: django
 spec:
-  replicas: {{ .Values.django_replicas | default 1 }}
+  replicas: {{ .Values.django.replicas }}
   selector:
     matchLabels:
       {{- include "npdbchart.selectorLabels" . | nindent 6 }}
@@ -18,7 +18,7 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: django
     spec:
-      {{- if .Values.exclude_node }}
+      {{- if .Values.scheduling.excludeNode }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -27,7 +27,7 @@ spec:
               - key: kubernetes.io/hostname
                 operator: NotIn
                 values:
-                - {{ .Values.exclude_node }}
+                - {{ .Values.scheduling.excludeNode }}
       {{- end }}
       containers:
       - name: django
@@ -36,7 +36,7 @@ spec:
         ports:
         - containerPort: 8080
           protocol: TCP
-        {{- if .Values.migrations_enabled }}
+        {{- if .Values.django.migrations.enabled }}
         lifecycle:
           postStart:
             exec:
@@ -47,57 +47,58 @@ spec:
         {{- end }}
         env:
         - name: POSTGRES_HOST_W
-          value: {{ if .Values.use_pgbouncer }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.dbhost_w }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.database.writer.host }}{{ end }}
         - name: POSTGRES_DB_W
-          value: {{ .Values.dbname_w }}
+          value: {{ .Values.database.writer.name }}
         - name: POSTGRES_USER_W
-          value: {{ .Values.dbuser_w }}
+          value: {{ .Values.database.writer.user }}
         - name: POSTGRES_PASSWORD_W
-          value: {{ .Values.dbpassword_w }}
+          value: {{ .Values.database.writer.password }}
         - name: POSTGRES_PORT_W
-          value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ .Values.database.writer.port | quote }}{{ end }}
         - name: POSTGRES_HOST_R1
-          value: {{ if .Values.use_pgbouncer }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.dbhost_r1 }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.database.reader1.host }}{{ end }}
         - name: POSTGRES_DB_R1
-          value: {{ .Values.dbname_r1 }}
+          value: {{ .Values.database.reader1.name }}
         - name: POSTGRES_USER_R1
-          value: {{ .Values.dbuser_r1 }}
+          value: {{ .Values.database.reader1.user }}
         - name: POSTGRES_PASSWORD_R1
-          value: {{ .Values.dbpassword_r1 }}
+          value: {{ .Values.database.reader1.password }}
         - name: POSTGRES_PORT_R1
-          value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ .Values.database.reader1.port | quote }}{{ end }}
         - name: POSTGRES_HOST_R2
-          value: {{ if .Values.use_pgbouncer }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.dbhost_r2 }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.database.reader2.host }}{{ end }}
         - name: POSTGRES_DB_R2
-          value: {{ .Values.dbname_r2 }}
+          value: {{ .Values.database.reader2.name }}
         - name: POSTGRES_USER_R2
-          value: {{ .Values.dbuser_r2 }}
+          value: {{ .Values.database.reader2.user }}
         - name: POSTGRES_PASSWORD_R2
-          value: {{ .Values.dbpassword_r2 }}
+          value: {{ .Values.database.reader2.password }}
         - name: POSTGRES_PORT_R2
-          value: {{ if .Values.use_pgbouncer }}"6432"{{ else }}"5432"{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ .Values.database.reader2.port | quote }}{{ end }}
         - name: CDB_IOV_MODE
-          value: {{ .Values.cdb_iov_mode | default "continuous" | quote }}
+          value: {{ .Values.cdb.iovMode | quote }}
         - name: PERMISSION_PLUGIN_CLASS
-          value: {{ .Values.permission_plugin_class | default "cdb_rest.permissions_plugins.belle2.Belle2PermissionPlugin" | quote }}
+          value: {{ .Values.cdb.permissionPluginClass | quote }}
         - name: CDB_AUTH_CLASS
-          value: {{ .Values.cdb_auth_class | default "" | quote }}
-        {{- if .Values.jwt_secret }}
+          value: {{ .Values.cdb.authClass | quote }}
+        {{- if .Values.cdb.jwtSecret }}
         - name: JWT_SECRET
-          value: {{ .Values.jwt_secret | quote }}
+          value: {{ .Values.cdb.jwtSecret | quote }}
         {{- end }}
-        {{- if .Values.cdb_payload_base_url }}
+        {{- if .Values.cdb.payloadBaseUrl }}
         - name: CDB_PAYLOAD_BASE_URL
-          value: {{ .Values.cdb_payload_base_url | quote }}
+          value: {{ .Values.cdb.payloadBaseUrl | quote }}
         {{- end }}
         volumeMounts:
         - name: run
           mountPath: /var/run
         - name: varlog
           mountPath: /var/log
-      {{- if .Values.promtail_enabled }}
+      {{- if .Values.promtail.enabled }}
       - name: promtail
-        image: grafana/promtail:2.9.0
+        image: {{ include "npdbchart.externalImage" .Values.images.promtail | quote }}
+        imagePullPolicy: {{ .Values.images.promtail.pullPolicy }}
         args:
           - "-config.file=/etc/promtail/promtail-config.yaml"
         volumeMounts:
@@ -111,10 +112,10 @@ spec:
           emptyDir: {}
         - name: varlog
           emptyDir: {}
-        {{- if .Values.promtail_enabled }}
+        {{- if .Values.promtail.enabled }}
         - name: promtail-config
           configMap:
-            name: promtail-config
+            name: {{ .Values.promtail.configMapName }}
         {{- end }}
 ---
 kind: Service
