@@ -22,6 +22,42 @@ image directly, while OpenShift workloads consume the chart-managed ImageStream.
 {{- printf "%s:%s" .repository .tag -}}
 {{- end }}
 
+{{/* Reproduce the default fullname used by the Bitnami PostgreSQL subchart. */}}
+{{- define "npdbchart.postgresql.fullname" -}}
+{{- if .Values.postgresql.fullnameOverride -}}
+{{- .Values.postgresql.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default "postgresql" .Values.postgresql.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Return one database connection field. An enabled PostgreSQL dependency is the
+writer and both readers; otherwise use the corresponding external connection.
+*/}}
+{{- define "npdbchart.databaseValue" -}}
+{{- if .root.Values.postgresql.enabled -}}
+{{- if eq .field "host" -}}
+{{- include "npdbchart.postgresql.fullname" .root -}}
+{{- else if eq .field "port" -}}
+{{- print "5432" -}}
+{{- else if eq .field "name" -}}
+{{- .root.Values.postgresql.auth.database -}}
+{{- else if eq .field "user" -}}
+{{- .root.Values.postgresql.auth.username -}}
+{{- else if eq .field "password" -}}
+{{- .root.Values.postgresql.auth.password -}}
+{{- end -}}
+{{- else -}}
+{{- index (index .root.Values.database .connection) .field -}}
+{{- end -}}
+{{- end }}
+
 {{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).

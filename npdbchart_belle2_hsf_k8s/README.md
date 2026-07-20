@@ -23,6 +23,52 @@ Kubernetes workloads pull `repository:tag` directly. On OpenShift, the chart
 imports that image into an ImageStream and points the workload at the imported
 tag in the release namespace.
 
+## Optional PostgreSQL
+
+The chart can install PostgreSQL as part of the same Helm release. The
+dependency is disabled by default, so existing external database deployments
+continue to use `database.writer`, `database.reader1`, and `database.reader2`.
+
+Fetch the dependency once after cloning the repository:
+
+```bash
+helm dependency build ./npdbchart_belle2_hsf_k8s
+```
+
+No Bitnami Helm repository setup is required; the locked dependency is fetched
+from Bitnami's OCI registry.
+
+Enable PostgreSQL and configure its credentials in the values file:
+
+```yaml
+postgresql:
+  enabled: true
+  auth:
+    username: cdb
+    password: test-password
+    database: cdb
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+```
+
+When enabled, the chart automatically points the writer and both reader
+connections at the bundled PostgreSQL Service. The external `database.*`
+connection values are ignored. PgBouncer, when enabled, also connects to the
+bundled database automatically.
+
+For quick testing, the same configuration can be supplied on the command line:
+
+```bash
+helm upgrade --install npdb ./npdbchart_belle2_hsf_k8s \
+  --namespace npdb-test \
+  --create-namespace \
+  --set postgresql.enabled=true \
+  --set-string postgresql.auth.password='test-password' \
+  --set django.migrations.enabled=true
+```
+
 ## Kubernetes
 
 Install the chart with its default Django backend:

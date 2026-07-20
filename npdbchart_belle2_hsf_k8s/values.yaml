@@ -41,6 +41,7 @@ database:
     name: cdb
     user: cdb
     password: change-me
+
   reader1:
     host: postgres.example.org
     port: 5432
@@ -53,6 +54,21 @@ database:
     name: cdb
     user: cdb
     password: change-me
+
+# Optional Bitnami PostgreSQL dependency. When enabled, its connection and
+# credentials replace all three external database connections above.
+postgresql:
+  enabled: false
+  nameOverride: ""
+  fullnameOverride: ""
+  auth:
+    username: cdb
+    password: change-me
+    database: cdb
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
 
 cdb:
   iovMode: continuous

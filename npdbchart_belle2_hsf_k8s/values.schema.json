@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["platform", "backend", "hosts", "images", "database"],
+  "required": ["platform", "backend", "hosts", "images", "database", "postgresql"],
   "properties": {
     "platform": {
       "type": "string",
@@ -44,6 +44,22 @@
         "reader1": {"$ref": "#/$defs/databaseConnection"},
         "reader2": {"$ref": "#/$defs/databaseConnection"}
       }
+    },
+    "postgresql": {
+      "type": "object",
+      "required": ["enabled", "auth"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "auth": {
+          "type": "object",
+          "required": ["username", "password", "database"],
+          "properties": {
+            "username": {"type": "string"},
+            "password": {"type": "string"},
+            "database": {"type": "string"}
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -64,6 +80,32 @@
               "payload": {
                 "properties": {
                   "existingClaim": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "postgresql": {
+            "properties": {
+              "enabled": {"const": true}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "postgresql": {
+            "properties": {
+              "auth": {
+                "properties": {
+                  "username": {"minLength": 1},
+                  "password": {"minLength": 1},
+                  "database": {"minLength": 1}
                 }
               }
             }

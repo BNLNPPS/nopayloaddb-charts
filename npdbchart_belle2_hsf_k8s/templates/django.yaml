@@ -47,35 +47,35 @@ spec:
         {{- end }}
         env:
         - name: POSTGRES_HOST_W
-          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.database.writer.host }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}{{ end }}
         - name: POSTGRES_DB_W
-          value: {{ .Values.database.writer.name }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "name") }}
         - name: POSTGRES_USER_W
-          value: {{ .Values.database.writer.user }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "user") }}
         - name: POSTGRES_PASSWORD_W
-          value: {{ .Values.database.writer.password }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "password") }}
         - name: POSTGRES_PORT_W
-          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ .Values.database.writer.port | quote }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}{{ end }}
         - name: POSTGRES_HOST_R1
-          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.database.reader1.host }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "host") }}{{ end }}
         - name: POSTGRES_DB_R1
-          value: {{ .Values.database.reader1.name }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "name") }}
         - name: POSTGRES_USER_R1
-          value: {{ .Values.database.reader1.user }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "user") }}
         - name: POSTGRES_PASSWORD_R1
-          value: {{ .Values.database.reader1.password }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "password") }}
         - name: POSTGRES_PORT_R1
-          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ .Values.database.reader1.port | quote }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}{{ end }}
         - name: POSTGRES_HOST_R2
-          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ .Values.database.reader2.host }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "host") }}{{ end }}
         - name: POSTGRES_DB_R2
-          value: {{ .Values.database.reader2.name }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "name") }}
         - name: POSTGRES_USER_R2
-          value: {{ .Values.database.reader2.user }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "user") }}
         - name: POSTGRES_PASSWORD_R2
-          value: {{ .Values.database.reader2.password }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "password") }}
         - name: POSTGRES_PORT_R2
-          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ .Values.database.reader2.port | quote }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "port") | quote }}{{ end }}
         - name: CDB_IOV_MODE
           value: {{ .Values.cdb.iovMode | quote }}
         - name: PERMISSION_PLUGIN_CLASS

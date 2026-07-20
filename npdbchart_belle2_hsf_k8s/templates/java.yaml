@@ -50,9 +50,9 @@ spec:
           failureThreshold: 1
         env:
         - name: PGSERVER
-          value: {{ .Values.database.writer.host }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}
         - name: PGPORT
-          value: {{ .Values.database.writer.port | quote }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}
         - name: B2S_APP_LOGGING_LEVEL
           value: INFO
         - name: B2S_SERVER_LOGGING_LEVEL
@@ -147,9 +147,9 @@ spec:
           failureThreshold: 1
         env:
         - name: PGSERVER
-          value: {{ .Values.database.reader1.host }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "host") }}
         - name: PGPORT
-          value: {{ .Values.database.reader1.port | quote }}
+          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}
         - name: B2S_APP_LOGGING_LEVEL
           value: INFO
         - name: B2S_SERVER_LOGGING_LEVEL
