@@ -48,17 +48,17 @@ data:
         {{- if .Values.use_java }}
         # Java API Upstreams
         upstream java {
-            server {{ include "npdbchart.fullname" . }}-java.{{ .Values.project }}.svc.cluster.local:8080 max_conns=150;
+            server {{ include "npdbchart.fullname" . }}-java:8080 max_conns=150;
         }
 
         upstream java-replica {
-            server {{ include "npdbchart.fullname" . }}-java.{{ .Values.project }}.svc.cluster.local:8080 weight=80 max_conns=120;
-            server {{ include "npdbchart.fullname" . }}-java-replica.{{ .Values.project }}.svc.cluster.local:8080 weight=20 max_conns=100;
+            server {{ include "npdbchart.fullname" . }}-java:8080 weight=80 max_conns=120;
+            server {{ include "npdbchart.fullname" . }}-java-replica:8080 weight=20 max_conns=100;
         }
         {{- else }}
         # Django API Upstream
         upstream django {
-            server {{ include "npdbchart.fullname" . }}-django.{{ .Values.project }}.svc.cluster.local:8000 max_conns=2000;
+            server {{ include "npdbchart.fullname" . }}-django:8000 max_conns=2000;
         }
         {{- end }}
 
