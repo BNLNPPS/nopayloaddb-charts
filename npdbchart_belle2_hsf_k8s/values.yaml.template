@@ -1,5 +1,5 @@
 # Deployment platform. Supported values: openshift, kubernetes
-platform: openshift
+platform: kubernetes
 
 # Public host names
 domain: openshift_cluster_base_url
@@ -24,6 +24,21 @@ images:
     repository: docker_image
     tag: latest
     pullPolicy: IfNotPresent
+
+# Platform-specific public exposure
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls: []
+
+route:
+  enabled: true
+  annotations:
+    haproxy.router.openshift.io/disable_cookies: "true"
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow
 #DB parameters
 dbhost_w: host_name
 dbname_w: database_name
@@ -62,6 +77,5 @@ django_replicas: 1
 #Optional features
 promtail_enabled: false
 migrations_enabled: false
-use_ingress: false
 use_java: false
 use_pgbouncer: false

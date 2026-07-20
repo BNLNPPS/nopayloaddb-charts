@@ -1,0 +1,71 @@
+{{- if and (eq .Values.platform "kubernetes") .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-nginx
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nginx
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ printf "%s.%s" .Values.appname .Values.domain | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "npdbchart.fullname" . }}-nginx
+                port:
+                  name: http
+    - host: {{ printf "%s.%s" .Values.appname_files .Values.domain | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "npdbchart.fullname" . }}-nginx
+                port:
+                  name: http
+{{- else if and (eq .Values.platform "openshift") .Values.route.enabled }}
+{{- $hosts := list (dict "name" "api" "host" (printf "%s.%s" .Values.appname .Values.domain)) (dict "name" "files" "host" (printf "%s.%s" .Values.appname_files .Values.domain)) }}
+{{- range $index, $host := $hosts }}
+{{- if $index }}
+---
+{{- end }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "npdbchart.fullname" $ }}-nginx-{{ $host.name }}
+  labels:
+    {{- include "npdbchart.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: nginx
+  {{- with $.Values.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ $host.host | quote }}
+  to:
+    kind: Service
+    name: {{ include "npdbchart.fullname" $ }}-nginx
+  port:
+    targetPort: http
+  {{- with $.Values.route.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}
