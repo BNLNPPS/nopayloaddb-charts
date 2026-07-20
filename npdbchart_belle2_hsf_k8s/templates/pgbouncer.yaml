@@ -1,0 +1,124 @@
+{{- if .Values.use_pgbouncer }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-pgbouncer
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.pgbouncer_docker_image | splitList ":" | last | quote }}
+      from:
+        kind: DockerImage
+        name: {{ .Values.pgbouncer_docker_image }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-pgbouncer-conf
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+data:
+  pgbouncer.ini: |
+    [databases]
+    pgbouncer =
+    {{ .Values.dbname_w }} = host={{ .Values.dbhost_w }} port=5432 dbname={{ .Values.dbname_w }}
+    {{ .Values.dbname_r1 }} = host={{ .Values.dbhost_r1 }} port=5432 dbname={{ .Values.dbname_r1 }}
+    {{ .Values.dbname_r2 }} = host={{ .Values.dbhost_r2 }} port=5432 dbname={{ .Values.dbname_r2 }}
+    [pgbouncer]
+    admin_users = {{ .Values.dbuser_w }}
+    ignore_startup_parameters = extra_float_digits
+    listen_addr = *
+    listen_port = 6432
+    logfile = /var/log/pgbouncer/pgbouncer.log
+    pidfile = /var/run/pgbouncer/pgbouncer.pid
+    auth_type = scram-sha-256
+    auth_file = /etc/pgbouncer/userlist.txt
+    unix_socket_dir = /var/run/pgbouncer
+    pool_mode = transaction
+    max_client_conn = 10000
+    default_pool_size = 1100
+    reserve_pool_size = 400
+    reserve_pool_timeout = 5
+  userlist.txt: |
+    {{ .Values.dbuser_w | quote }} {{ .Values.dbpassword_w | quote }}
+    {{- if ne .Values.dbuser_r1 .Values.dbuser_w }}
+    {{ .Values.dbuser_r1 | quote }} {{ .Values.dbpassword_r1 | quote }}
+    {{- end }}
+    {{- if and (ne .Values.dbuser_r2 .Values.dbuser_w) (ne .Values.dbuser_r2 .Values.dbuser_r1) }}
+    {{ .Values.dbuser_r2 | quote }} {{ .Values.dbpassword_r2 | quote }}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-pgbouncer
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: pgbouncer
+  template:
+    metadata:
+      labels:
+        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: pgbouncer
+    spec:
+      {{- if .Values.pgbouncer_node }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ .Values.pgbouncer_node }}
+      {{- end }}
+      containers:
+      - name: pgbouncer
+        image: "image-registry.openshift-image-registry.svc:5000/{{ .Values.project }}/{{ include "npdbchart.fullname" . }}-pgbouncer:{{ .Values.pgbouncer_docker_image | splitList ":" | last }}"
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 6432
+        volumeMounts:
+        - name: pgbouncer-conf
+          mountPath: /etc/pgbouncer
+          readOnly: true
+      volumes:
+      - name: pgbouncer-conf
+        configMap:
+          name: {{ include "npdbchart.fullname" . }}-pgbouncer-conf
+          items:
+           - key: pgbouncer.ini
+             path: pgbouncer.ini
+           - key: userlist.txt
+             path: userlist.txt
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdbchart.fullname" . }}-pgbouncer
+  labels:
+    {{- include "npdbchart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  selector:
+    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+  ports:
+    - name: "6432-tcp"
+      protocol: TCP
+      port: 6432
+      targetPort: 6432
+  type: ClusterIP
+  sessionAffinity: None
+{{- end }}
