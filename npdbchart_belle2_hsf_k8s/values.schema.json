@@ -52,11 +52,19 @@
         "enabled": {"type": "boolean"},
         "auth": {
           "type": "object",
-          "required": ["username", "password", "database"],
+          "required": ["username", "database", "existingSecret", "secretKeys"],
           "properties": {
             "username": {"type": "string"},
             "password": {"type": "string"},
-            "database": {"type": "string"}
+            "database": {"type": "string"},
+            "existingSecret": {"type": "string"},
+            "secretKeys": {
+              "type": "object",
+              "required": ["userPasswordKey"],
+              "properties": {
+                "userPasswordKey": {"type": "string"}
+              }
+            }
           }
         }
       }
@@ -104,10 +112,67 @@
               "auth": {
                 "properties": {
                   "username": {"minLength": 1},
-                  "password": {"minLength": 1},
-                  "database": {"minLength": 1}
+                  "database": {"minLength": 1},
+                  "secretKeys": {
+                    "properties": {
+                      "userPasswordKey": {"minLength": 1}
+                    }
+                  }
                 }
               }
+            }
+          }
+        },
+        "anyOf": [
+          {
+            "properties": {
+              "postgresql": {
+                "properties": {
+                  "auth": {
+                    "properties": {
+                      "password": {"minLength": 1}
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "postgresql": {
+                "properties": {
+                  "auth": {
+                    "properties": {
+                      "existingSecret": {"minLength": 1}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "postgresql": {
+            "properties": {
+              "enabled": {"const": true},
+              "auth": {
+                "properties": {
+                  "existingSecret": {"minLength": 1}
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pgbouncer": {
+            "properties": {
+              "enabled": {"const": false}
             }
           }
         }

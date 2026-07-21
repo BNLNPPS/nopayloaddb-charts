@@ -65,6 +65,11 @@ postgresql:
     username: cdb
     password: change-me
     database: cdb
+    # Use an existing Secret instead of password. The Secret must be in the
+    # release namespace and contain the key configured below.
+    existingSecret: ""
+    secretKeys:
+      userPasswordKey: password
   primary:
     persistence:
       enabled: true

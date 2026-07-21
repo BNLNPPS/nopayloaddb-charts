@@ -53,7 +53,7 @@ spec:
         - name: POSTGRES_USER_W
           value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "user") }}
         - name: POSTGRES_PASSWORD_W
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "password") }}
+          {{- include "npdbchart.databasePasswordEnv" (dict "root" . "connection" "writer") | nindent 10 }}
         - name: POSTGRES_PORT_W
           value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}{{ end }}
         - name: POSTGRES_HOST_R1
@@ -63,7 +63,7 @@ spec:
         - name: POSTGRES_USER_R1
           value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "user") }}
         - name: POSTGRES_PASSWORD_R1
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "password") }}
+          {{- include "npdbchart.databasePasswordEnv" (dict "root" . "connection" "reader1") | nindent 10 }}
         - name: POSTGRES_PORT_R1
           value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}{{ end }}
         - name: POSTGRES_HOST_R2
@@ -73,7 +73,7 @@ spec:
         - name: POSTGRES_USER_R2
           value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "user") }}
         - name: POSTGRES_PASSWORD_R2
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "password") }}
+          {{- include "npdbchart.databasePasswordEnv" (dict "root" . "connection" "reader2") | nindent 10 }}
         - name: POSTGRES_PORT_R2
           value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "port") | quote }}{{ end }}
         - name: CDB_IOV_MODE

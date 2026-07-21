@@ -59,6 +59,22 @@ writer and both readers; otherwise use the corresponding external connection.
 {{- end }}
 
 {{/*
+Render the value or Secret reference for an application database password.
+The bundled PostgreSQL chart gives an existing Secret precedence over the
+literal password, so application workloads must do the same.
+*/}}
+{{- define "npdbchart.databasePasswordEnv" -}}
+{{- if and .root.Values.postgresql.enabled .root.Values.postgresql.auth.existingSecret -}}
+valueFrom:
+  secretKeyRef:
+    name: {{ .root.Values.postgresql.auth.existingSecret | quote }}
+    key: {{ .root.Values.postgresql.auth.secretKeys.userPasswordKey | quote }}
+{{- else -}}
+value: {{ include "npdbchart.databaseValue" (dict "root" .root "connection" .connection "field" "password") | quote }}
+{{- end -}}
+{{- end }}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.

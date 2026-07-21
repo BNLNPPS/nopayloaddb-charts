@@ -58,6 +58,30 @@ connections at the bundled PostgreSQL Service. The external `database.*`
 connection values are ignored. PgBouncer, when enabled, also connects to the
 bundled database automatically.
 
+To keep the password out of the values file, create a Secret in the release
+namespace and point both PostgreSQL and the application workloads at it:
+
+```bash
+kubectl create secret generic npdb-postgresql-credentials \
+  --namespace npdb \
+  --from-literal=password='replace-with-a-strong-password'
+```
+
+```yaml
+postgresql:
+  enabled: true
+  auth:
+    username: cdb
+    database: cdb
+    existingSecret: npdb-postgresql-credentials
+    secretKeys:
+      userPasswordKey: password
+```
+
+The Secret must exist in the Helm release namespace before installation or
+upgrade. PgBouncer cannot currently be enabled with this option because its
+authentication file requires additional Secret handling.
+
 For quick testing, the same configuration can be supplied on the command line:
 
 ```bash
