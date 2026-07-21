@@ -4,6 +4,17 @@ This chart deploys the Belle II HSF NoPayloadDB service on Kubernetes or
 OpenShift. Kubernetes is the default platform and uses standard Ingress
 resources. OpenShift uses ImageStreams and Routes.
 
+Published chart versions are available from GitHub Container Registry. Replace
+`OWNER` with the lowercase GitHub organization or user that owns the repository:
+
+```bash
+helm install npdb oci://ghcr.io/OWNER/charts/npdbchart --version 0.4.0
+```
+
+Publishing runs when this chart changes on `main`, and can also be started
+manually in GitHub Actions. Increment `version` in `Chart.yaml` before publishing
+a new release because OCI chart versions are immutable.
+
 ## Configure the chart
 
 Copy `values.yaml` and override at least the public hosts, container images,

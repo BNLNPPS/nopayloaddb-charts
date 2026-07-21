@@ -1,0 +1,45 @@
+name: Publish Belle II HSF Helm chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - npdbchart_belle2_hsf_k8s/**
+      - .github/workflows/publish-npdbchart-belle2-hsf-k8s.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-npdbchart-belle2-hsf-k8s
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint chart
+        run: helm lint ./npdbchart_belle2_hsf_k8s
+
+      - name: Package chart
+        run: helm package ./npdbchart_belle2_hsf_k8s --destination ./dist
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Publish chart
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: helm push ./dist/*.tgz "oci://ghcr.io/${OWNER,,}/charts"
