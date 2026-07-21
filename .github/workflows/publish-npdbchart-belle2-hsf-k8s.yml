@@ -28,6 +28,9 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
+      - name: Download chart dependencies
+        run: helm dependency build ./npdbchart_belle2_hsf_k8s --skip-refresh
+
       - name: Lint chart
         run: helm lint ./npdbchart_belle2_hsf_k8s
 
