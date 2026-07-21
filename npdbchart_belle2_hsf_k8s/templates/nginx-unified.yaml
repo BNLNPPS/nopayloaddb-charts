@@ -167,9 +167,9 @@ spec:
       #  fsGroup: 1000860000
       volumes:
         - name: files-volume
-          {{- if .Values.storage.payload.existingClaim }}
+          {{- if or .Values.storage.payload.existingClaim .Values.storage.payload.create }}
           persistentVolumeClaim:
-            claimName: {{ .Values.storage.payload.existingClaim }}
+            claimName: {{ include "npdbchart.payloadClaimName" . }}
           {{- else }}
           emptyDir: {}
           {{- end }}

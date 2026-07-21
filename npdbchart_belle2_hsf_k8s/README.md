@@ -159,7 +159,27 @@ storage:
     subPath: ""
 ```
 
-The values schema rejects Java configurations without an existing claim.
+Alternatively, let the chart create a PVC. For example, an NFS provisioner
+that exposes the `nfs-client` StorageClass can dynamically provision RWX
+storage:
+
+```yaml
+backend:
+  type: java
+
+storage:
+  payload:
+    create: true
+    storageClass: nfs-client
+    size: 20Gi
+    accessModes:
+      - ReadWriteMany
+```
+
+Set either `existingClaim` or `create`, but not both. When `storageClass` is
+empty, the cluster's default StorageClass is used. The values schema rejects
+Java configurations that select neither option. With the Django backend,
+NGINX continues to use `emptyDir` when neither option is selected.
 
 ## Migrating flat values
 

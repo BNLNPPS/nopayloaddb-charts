@@ -68,6 +68,39 @@
           }
         }
       }
+    },
+    "storage": {
+      "type": "object",
+      "required": ["payload"],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": ["existingClaim", "create", "storageClass", "size", "accessModes", "subPath"],
+          "properties": {
+            "existingClaim": {"type": "string"},
+            "create": {"type": "boolean"},
+            "storageClass": {"type": "string"},
+            "size": {"type": "string", "minLength": 1},
+            "accessModes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany", "ReadWriteOncePod"]
+              }
+            },
+            "subPath": {"type": "string"}
+          },
+          "not": {
+            "properties": {
+              "existingClaim": {"minLength": 1},
+              "create": {"const": true}
+            },
+            "required": ["existingClaim", "create"]
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -82,17 +115,34 @@
         }
       },
       "then": {
-        "properties": {
-          "storage": {
+        "anyOf": [
+          {
             "properties": {
-              "payload": {
+              "storage": {
                 "properties": {
-                  "existingClaim": {"type": "string", "minLength": 1}
+                  "payload": {
+                    "properties": {
+                      "existingClaim": {"minLength": 1}
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "storage": {
+                "properties": {
+                  "payload": {
+                    "properties": {
+                      "create": {"const": true}
+                    }
+                  }
                 }
               }
             }
           }
-        }
+        ]
       }
     },
     {

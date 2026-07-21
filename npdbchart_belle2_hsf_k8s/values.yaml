@@ -99,8 +99,14 @@ nginx:
 
 storage:
   payload:
-    # Existing PVC name. NGINX uses an emptyDir when this is empty.
+    # Use an existing PVC, or set create to true to provision one with the chart.
+    # NGINX uses an emptyDir when neither option is selected.
     existingClaim: ""
+    create: false
+    storageClass: ""
+    size: 20Gi
+    accessModes:
+      - ReadWriteMany
     subPath: ""
 
 scheduling:

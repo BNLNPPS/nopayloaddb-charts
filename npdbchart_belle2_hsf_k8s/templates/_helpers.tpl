@@ -5,6 +5,15 @@ Expand the name of the chart.
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
+{{/* Return the existing or chart-managed payload PVC name. */}}
+{{- define "npdbchart.payloadClaimName" -}}
+{{- if .Values.storage.payload.existingClaim -}}
+{{- .Values.storage.payload.existingClaim -}}
+{{- else -}}
+{{- printf "%s-payload" (include "npdbchart.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end }}
+
 {{/*
 Build the image reference used by a workload. Kubernetes pulls the configured
 image directly, while OpenShift workloads consume the chart-managed ImageStream.

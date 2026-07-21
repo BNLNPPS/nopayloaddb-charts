@@ -94,7 +94,7 @@ spec:
       volumes:
         - name: payloadfs
           persistentVolumeClaim:
-            claimName: {{ .Values.storage.payload.existingClaim }}
+            claimName: {{ include "npdbchart.payloadClaimName" . }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -191,7 +191,7 @@ spec:
       volumes:
         - name: payloadfs
           persistentVolumeClaim:
-            claimName: {{ .Values.storage.payload.existingClaim }}
+            claimName: {{ include "npdbchart.payloadClaimName" . }}
 ---
 kind: Service
 apiVersion: v1
