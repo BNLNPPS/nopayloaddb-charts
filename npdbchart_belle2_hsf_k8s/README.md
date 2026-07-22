@@ -69,6 +69,12 @@ connections at the bundled PostgreSQL Service. The external `database.*`
 connection values are ignored. PgBouncer, when enabled, also connects to the
 bundled database automatically.
 
+The Django pod waits for its configured writer database to accept connections
+before starting. When `django.migrations.enabled` is true, migrations run in a
+separate init container after the database wait completes. The init container
+generates the current `cdb_rest` migrations before applying them because the
+default Django image does not include generated migration files.
+
 To keep the password out of the values file, create a Secret in the release
 namespace and point both PostgreSQL and the application workloads at it:
 

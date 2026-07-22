@@ -83,6 +83,40 @@ value: {{ include "npdbchart.databaseValue" (dict "root" .root "connection" .con
 {{- end -}}
 {{- end }}
 
+{{/* Render the database environment shared by Django and its migration init container. */}}
+{{- define "npdbchart.djangoDatabaseEnv" -}}
+- name: POSTGRES_HOST_W
+  value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}{{ end }}
+- name: POSTGRES_DB_W
+  value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "name") }}
+- name: POSTGRES_USER_W
+  value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "user") }}
+- name: POSTGRES_PASSWORD_W
+  {{- include "npdbchart.databasePasswordEnv" (dict "root" . "connection" "writer") | nindent 2 }}
+- name: POSTGRES_PORT_W
+  value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}{{ end }}
+- name: POSTGRES_HOST_R1
+  value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "host") }}{{ end }}
+- name: POSTGRES_DB_R1
+  value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "name") }}
+- name: POSTGRES_USER_R1
+  value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "user") }}
+- name: POSTGRES_PASSWORD_R1
+  {{- include "npdbchart.databasePasswordEnv" (dict "root" . "connection" "reader1") | nindent 2 }}
+- name: POSTGRES_PORT_R1
+  value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}{{ end }}
+- name: POSTGRES_HOST_R2
+  value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "host") }}{{ end }}
+- name: POSTGRES_DB_R2
+  value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "name") }}
+- name: POSTGRES_USER_R2
+  value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "user") }}
+- name: POSTGRES_PASSWORD_R2
+  {{- include "npdbchart.databasePasswordEnv" (dict "root" . "connection" "reader2") | nindent 2 }}
+- name: POSTGRES_PORT_R2
+  value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader2" "field" "port") | quote }}{{ end }}
+{{- end }}
+
 {{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
