@@ -102,7 +102,7 @@ files:
   upload:
     enabled: false
   authentication:
-    enabled: false
+    requireForDownloads: false
     userinfoUrl: ""
 
 storage:

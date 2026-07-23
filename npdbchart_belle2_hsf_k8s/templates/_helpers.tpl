@@ -118,14 +118,13 @@ value: {{ include "npdbchart.databaseValue" (dict "root" .root "connection" .con
 {{- end }}
 
 {{/*
-Render the authenticated payload-file location shared by both NGINX virtual
-hosts. Enabling uploads without authentication is intentionally unsupported.
+Render the payload-file locations shared by both NGINX virtual hosts. Downloads
+remain public unless explicitly protected, while uploads are always
+authenticated.
 */}}
 {{- define "npdbchart.dbstoreLocations" -}}
-{{- if and .Values.files.upload.enabled (not .Values.files.authentication.enabled) -}}
-{{- fail "files.upload.enabled requires files.authentication.enabled" -}}
-{{- end -}}
-{{- if .Values.files.authentication.enabled }}
+{{- $authenticationRequired := or .Values.files.upload.enabled .Values.files.authentication.requireForDownloads -}}
+{{- if $authenticationRequired }}
 location = /_npdb_files_auth {
     internal;
     proxy_pass {{ required "files.authentication.userinfoUrl is required when file authentication is enabled" .Values.files.authentication.userinfoUrl | quote }};
@@ -142,18 +141,26 @@ location /dbstore {
     root /usr/share/nginx/html;
     proxy_hide_header Cache-Control;
     add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
-    {{- if .Values.files.authentication.enabled }}
+    {{- if .Values.files.authentication.requireForDownloads }}
     auth_request /_npdb_files_auth;
     {{- end }}
-    {{- if .Values.files.upload.enabled }}
-    dav_methods PUT;
-    create_full_put_path on;
-    dav_access user:rw group:rw all:r;
-    {{- end }}
-    limit_except GET HEAD{{ if .Values.files.upload.enabled }} PUT{{ end }} {
+    limit_except GET HEAD {
         deny all;
     }
 }
+{{- if .Values.files.upload.enabled }}
+
+location /upload/ {
+    alias /usr/share/nginx/html/dbstore/;
+    auth_request /_npdb_files_auth;
+    dav_methods PUT;
+    create_full_put_path on;
+    dav_access user:rw group:rw all:r;
+    limit_except PUT {
+        deny all;
+    }
+}
+{{- end }}
 {{- end }}
 
 {{/*
