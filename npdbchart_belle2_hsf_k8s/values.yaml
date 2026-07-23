@@ -96,6 +96,14 @@ java:
 nginx:
   replicas: 1
   cacheControl: max-age=3600
+  podSecurityContext: {}
+
+files:
+  upload:
+    enabled: false
+  authentication:
+    enabled: false
+    userinfoUrl: ""
 
 storage:
   payload:

@@ -140,6 +140,31 @@ ingress:
         - npdb-files.example.org
 ```
 
+### Authenticated payload files
+
+Payload-file access is read-only and unauthenticated by default. To validate
+every `/dbstore` request with an OAuth bearer token and allow HTTP `PUT`
+uploads, configure an IAM-compatible userinfo endpoint:
+
+```yaml
+nginx:
+  podSecurityContext:
+    fsGroup: 101
+
+files:
+  upload:
+    enabled: true
+  authentication:
+    enabled: true
+    userinfoUrl: https://iam.example.org/userinfo
+```
+
+NGINX forwards the request's `Authorization` header to the userinfo endpoint
+and serves the request only when that endpoint returns a successful response.
+Uploads cannot be enabled without authentication. The pod security context
+must give the NGINX worker write access to the payload volume; group ID 101 is
+used by the standard NGINX Alpine image.
+
 ## OpenShift
 
 Select OpenShift explicitly:

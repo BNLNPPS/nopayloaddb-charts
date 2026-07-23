@@ -63,6 +63,8 @@ data:
             proxy_connect_timeout 1800;
             proxy_send_timeout 1800;
 
+            {{ include "npdbchart.dbstoreLocations" . | nindent 12 }}
+
             {{- if eq .Values.backend.type "java" }}
             location /b2s/rest/v2/globalTagStatus {
                 proxy_pass http://java;
@@ -80,15 +82,6 @@ data:
                 proxy_pass http://java-replica;
                 proxy_cache_valid 200 302 300s;
                 proxy_redirect off;
-            }
-
-            location /dbstore {
-                root /usr/share/nginx/html;
-                proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
-                limit_except GET HEAD {
-                    deny all;
-                }
             }
 
             location / {
@@ -111,15 +104,6 @@ data:
                 proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
             }
 
-            location /dbstore {
-                root /usr/share/nginx/html;
-                proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
-                limit_except GET HEAD {
-                    deny all;
-                }
-            }
-
             location / {
                 proxy_pass http://django;
                 proxy_redirect off;
@@ -132,14 +116,7 @@ data:
             listen 8080;
             server_name {{ .Values.hosts.files }};
 
-            location /dbstore {
-                root /usr/share/nginx/html;
-                proxy_hide_header Cache-Control;
-                add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
-                limit_except GET HEAD {
-                    deny all;
-                }
-            }
+            {{ include "npdbchart.dbstoreLocations" . | nindent 12 }}
         }
     }
 ---
@@ -162,6 +139,10 @@ spec:
         {{- include "npdbchart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: nginx
     spec:
+      {{- with .Values.nginx.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       #securityContext:
       #  runAsUser: 101
       #  fsGroup: 1000860000

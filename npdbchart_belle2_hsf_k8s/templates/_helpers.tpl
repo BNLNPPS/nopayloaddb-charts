@@ -118,6 +118,45 @@ value: {{ include "npdbchart.databaseValue" (dict "root" .root "connection" .con
 {{- end }}
 
 {{/*
+Render the authenticated payload-file location shared by both NGINX virtual
+hosts. Enabling uploads without authentication is intentionally unsupported.
+*/}}
+{{- define "npdbchart.dbstoreLocations" -}}
+{{- if and .Values.files.upload.enabled (not .Values.files.authentication.enabled) -}}
+{{- fail "files.upload.enabled requires files.authentication.enabled" -}}
+{{- end -}}
+{{- if .Values.files.authentication.enabled }}
+location = /_npdb_files_auth {
+    internal;
+    proxy_pass {{ required "files.authentication.userinfoUrl is required when file authentication is enabled" .Values.files.authentication.userinfoUrl | quote }};
+    proxy_method GET;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Authorization $http_authorization;
+    proxy_ssl_server_name on;
+    proxy_cache off;
+}
+{{- end }}
+
+location /dbstore {
+    root /usr/share/nginx/html;
+    proxy_hide_header Cache-Control;
+    add_header Cache-Control {{ .Values.nginx.cacheControl | quote }};
+    {{- if .Values.files.authentication.enabled }}
+    auth_request /_npdb_files_auth;
+    {{- end }}
+    {{- if .Values.files.upload.enabled }}
+    dav_methods PUT;
+    create_full_put_path on;
+    dav_access user:rw group:rw all:r;
+    {{- end }}
+    limit_except GET HEAD{{ if .Values.files.upload.enabled }} PUT{{ end }} {
+        deny all;
+    }
+}
+{{- end }}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
