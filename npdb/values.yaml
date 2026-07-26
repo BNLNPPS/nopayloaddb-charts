@@ -1,0 +1,146 @@
+nameOverride: ""
+fullnameOverride: ""
+
+# Supported values: kubernetes, openshift
+platform: kubernetes
+
+# Select the application backend: django or java.
+backend:
+  type: django
+
+hosts:
+  api: npdb.example.org
+  files: npdb-files.example.org
+
+images:
+  django:
+    repository: ghcr.io/bnlnpps/nopayloaddb
+    tag: v5.1.0
+    pullPolicy: IfNotPresent
+  java:
+    repository: docker_image
+    tag: latest
+    pullPolicy: IfNotPresent
+  nginx:
+    repository: nginx
+    tag: 1.29-alpine
+    pullPolicy: IfNotPresent
+  pgbouncer:
+    repository: docker_image
+    tag: latest
+    pullPolicy: IfNotPresent
+  promtail:
+    repository: grafana/promtail
+    tag: 2.9.0
+    pullPolicy: IfNotPresent
+
+database:
+  writer:
+    host: postgres.example.org
+    port: 5432
+    name: cdb
+    user: cdb
+    password: change-me
+
+  reader1:
+    host: postgres.example.org
+    port: 5432
+    name: cdb
+    user: cdb
+    password: change-me
+  reader2:
+    host: postgres.example.org
+    port: 5432
+    name: cdb
+    user: cdb
+    password: change-me
+
+# Optional Bitnami PostgreSQL dependency. When enabled, its connection and
+# credentials replace all three external database connections above.
+postgresql:
+  enabled: false
+  nameOverride: ""
+  fullnameOverride: ""
+  auth:
+    username: cdb
+    password: change-me
+    database: cdb
+    # Use an existing Secret instead of password. The Secret must be in the
+    # release namespace and contain the key configured below.
+    existingSecret: ""
+    secretKeys:
+      userPasswordKey: password
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+cdb:
+  iovMode: continuous
+  payloadBaseUrl: ""
+  permissionPluginClass: cdb_rest.permissions_plugins.DummyPermissionPlugin
+  authClass: ""
+  jwtSecret: ""
+
+django:
+  replicas: 1
+  migrations:
+    enabled: false
+
+java:
+  replicas:
+    writer: 5
+    reader: 2
+  payloadServerAlias: ""
+
+nginx:
+  replicas: 1
+  cacheControl: max-age=3600
+  podSecurityContext: {}
+
+files:
+  upload:
+    enabled: false
+  authentication:
+    requireForDownloads: false
+    userinfoUrl: ""
+
+storage:
+  payload:
+    # Use an existing PVC, or set create to true to provision one with the chart.
+    # NGINX uses an emptyDir when neither option is selected.
+    existingClaim: ""
+    create: false
+    storageClass: ""
+    size: 20Gi
+    accessModes:
+      - ReadWriteMany
+    subPath: ""
+
+scheduling:
+  # Optional node hostname to exclude from application workloads.
+  excludeNode: ""
+
+pgbouncer:
+  enabled: false
+  replicas: 1
+  # Optional node hostname on which PgBouncer must run.
+  node: ""
+
+promtail:
+  enabled: false
+  configMapName: promtail-config
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls: []
+
+route:
+  enabled: true
+  annotations:
+    haproxy.router.openshift.io/disable_cookies: "true"
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow
