@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx-conf
+  name: {{ include "npdb.fullname" . }}-nginx-conf
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
 data:
   nginx.conf: |
@@ -32,17 +32,17 @@ data:
         {{- if eq .Values.backend.type "java" }}
         # Java API Upstreams
         upstream java {
-            server {{ include "npdbchart.fullname" . }}-java:8080 max_conns=150;
+            server {{ include "npdb.fullname" . }}-java:8080 max_conns=150;
         }
 
         upstream java-replica {
-            server {{ include "npdbchart.fullname" . }}-java:8080 weight=80 max_conns=120;
-            server {{ include "npdbchart.fullname" . }}-java-replica:8080 weight=20 max_conns=100;
+            server {{ include "npdb.fullname" . }}-java:8080 weight=80 max_conns=120;
+            server {{ include "npdb.fullname" . }}-java-replica:8080 weight=20 max_conns=100;
         }
         {{- else }}
         # Django API Upstream
         upstream django {
-            server {{ include "npdbchart.fullname" . }}-django:8000 max_conns=2000;
+            server {{ include "npdb.fullname" . }}-django:8000 max_conns=2000;
         }
         {{- end }}
 
@@ -63,7 +63,7 @@ data:
             proxy_connect_timeout 1800;
             proxy_send_timeout 1800;
 
-            {{ include "npdbchart.dbstoreLocations" . | nindent 12 }}
+            {{ include "npdb.dbstoreLocations" . | nindent 12 }}
 
             {{- if eq .Values.backend.type "java" }}
             location /b2s/rest/v2/globalTagStatus {
@@ -116,27 +116,27 @@ data:
             listen 8080;
             server_name {{ .Values.hosts.files }};
 
-            {{ include "npdbchart.dbstoreLocations" . | nindent 12 }}
+            {{ include "npdb.dbstoreLocations" . | nindent 12 }}
         }
     }
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
+  name: {{ include "npdb.fullname" . }}-nginx
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
 spec:
   replicas: {{ .Values.nginx.replicas }}
   selector:
     matchLabels:
-      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: nginx
   template:
     metadata:
       labels:
-        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: nginx
     spec:
       {{- with .Values.nginx.podSecurityContext }}
@@ -150,20 +150,20 @@ spec:
         - name: files-volume
           {{- if or .Values.storage.payload.existingClaim .Values.storage.payload.create }}
           persistentVolumeClaim:
-            claimName: {{ include "npdbchart.payloadClaimName" . }}
+            claimName: {{ include "npdb.payloadClaimName" . }}
           {{- else }}
           emptyDir: {}
           {{- end }}
         - name: nginx-conf-volume
           configMap:
-            name: {{ include "npdbchart.fullname" . }}-nginx-conf
+            name: {{ include "npdb.fullname" . }}-nginx-conf
         - name: nginx-cache
           emptyDir: {}
         - name: nginx-pid
           emptyDir: {}
       containers:
         - name: nginx
-          image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "nginx" "image" .Values.images.nginx) | quote }}
+          image: {{ include "npdb.workloadImage" (dict "root" . "component" "nginx" "image" .Values.images.nginx) | quote }}
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -185,13 +185,13 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-nginx
+  name: {{ include "npdb.fullname" . }}-nginx
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
 spec:
   selector:
-    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: nginx
   ports:
     - name: http

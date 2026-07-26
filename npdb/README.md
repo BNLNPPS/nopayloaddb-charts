@@ -1,6 +1,6 @@
-# NoPayloadDB Belle II HSF chart
+# NoPayloadDB Helm chart
 
-This chart deploys the Belle II HSF NoPayloadDB service on Kubernetes or
+This chart deploys the NoPayloadDB service on Kubernetes or
 OpenShift. Kubernetes is the default platform and uses standard Ingress
 resources. OpenShift uses ImageStreams and Routes.
 
@@ -8,7 +8,7 @@ Published chart versions are available from GitHub Container Registry. Replace
 `OWNER` with the lowercase GitHub organization or user that owns the repository:
 
 ```bash
-helm install npdb oci://ghcr.io/OWNER/charts/npdbchart --version 0.4.0
+helm install npdb oci://ghcr.io/OWNER/charts/npdb --version 0.4.3
 ```
 
 Publishing runs when this chart changes on `main`, and can also be started
@@ -43,7 +43,7 @@ continue to use `database.writer`, `database.reader1`, and `database.reader2`.
 Fetch the dependency once after cloning the repository:
 
 ```bash
-helm dependency build ./npdbchart_belle2_hsf_k8s
+helm dependency build ./npdb
 ```
 
 No Bitnami Helm repository setup is required; the locked dependency is fetched
@@ -102,7 +102,7 @@ authentication file requires additional Secret handling.
 For quick testing, the same configuration can be supplied on the command line:
 
 ```bash
-helm upgrade --install npdb ./npdbchart_belle2_hsf_k8s \
+helm upgrade --install npdb ./npdb \
   --namespace npdb-test \
   --create-namespace \
   --set postgresql.enabled=true \
@@ -115,7 +115,7 @@ helm upgrade --install npdb ./npdbchart_belle2_hsf_k8s \
 Install the chart with its default Django backend:
 
 ```bash
-helm upgrade --install npdb ./npdbchart_belle2_hsf_k8s \
+helm upgrade --install npdb ./npdb \
   --namespace npdb \
   --create-namespace \
   --values /path/to/values.yaml

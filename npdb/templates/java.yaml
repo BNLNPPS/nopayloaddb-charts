@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-java
+  name: {{ include "npdb.fullname" . }}-java
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: java
 spec:
   replicas: {{ .Values.java.replicas.writer }}
   selector:
     matchLabels:
-      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: java
   template:
     metadata:
       labels:
-        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: java
     spec:
       {{- if .Values.scheduling.excludeNode }}
@@ -35,7 +35,7 @@ spec:
         fsGroup: 50001
       containers:
       - name: java
-        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
         imagePullPolicy: {{ .Values.images.java.pullPolicy }}
         ports:
         - containerPort: 8080
@@ -50,9 +50,9 @@ spec:
           failureThreshold: 1
         env:
         - name: PGSERVER
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}
         - name: PGPORT
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}
         - name: B2S_APP_LOGGING_LEVEL
           value: INFO
         - name: B2S_SERVER_LOGGING_LEVEL
@@ -94,25 +94,25 @@ spec:
       volumes:
         - name: payloadfs
           persistentVolumeClaim:
-            claimName: {{ include "npdbchart.payloadClaimName" . }}
+            claimName: {{ include "npdb.payloadClaimName" . }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-java-replica
+  name: {{ include "npdb.fullname" . }}-java-replica
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: java-replica
 spec:
   replicas: {{ .Values.java.replicas.reader }}
   selector:
     matchLabels:
-      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: java-replica
   template:
     metadata:
       labels:
-        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: java-replica
     spec:
       {{- if .Values.scheduling.excludeNode }}
@@ -132,7 +132,7 @@ spec:
         fsGroup: 50001
       containers:
       - name: java-replica
-        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
         imagePullPolicy: {{ .Values.images.java.pullPolicy }}
         ports:
         - containerPort: 8080
@@ -147,9 +147,9 @@ spec:
           failureThreshold: 1
         env:
         - name: PGSERVER
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "host") }}
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "reader1" "field" "host") }}
         - name: PGPORT
-          value: {{ include "npdbchart.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}
         - name: B2S_APP_LOGGING_LEVEL
           value: INFO
         - name: B2S_SERVER_LOGGING_LEVEL
@@ -191,18 +191,18 @@ spec:
       volumes:
         - name: payloadfs
           persistentVolumeClaim:
-            claimName: {{ include "npdbchart.payloadClaimName" . }}
+            claimName: {{ include "npdb.payloadClaimName" . }}
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-java
+  name: {{ include "npdb.fullname" . }}-java
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: java
 spec:
   selector:
-    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: java
   ports:
     - name: "tcp-8080"
@@ -214,13 +214,13 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-java-replica
+  name: {{ include "npdb.fullname" . }}-java-replica
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: java-replica
 spec:
   selector:
-    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: java-replica
   ports:
     - name: "tcp-8080"

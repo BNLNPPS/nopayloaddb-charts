@@ -15,9 +15,9 @@
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
-  name: {{ include "npdbchart.fullname" $ }}-{{ $component.name }}
+  name: {{ include "npdb.fullname" $ }}-{{ $component.name }}
   labels:
-    {{- include "npdbchart.labels" $ | nindent 4 }}
+    {{- include "npdb.labels" $ | nindent 4 }}
     app.kubernetes.io/component: {{ $component.name }}
 spec:
   lookupPolicy:
@@ -26,6 +26,6 @@ spec:
     - name: {{ $component.image.tag | quote }}
       from:
         kind: DockerImage
-        name: {{ include "npdbchart.externalImage" $component.image | quote }}
+        name: {{ include "npdb.externalImage" $component.image | quote }}
 {{- end }}
 {{- end }}

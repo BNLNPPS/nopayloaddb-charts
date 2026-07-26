@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-django
+  name: {{ include "npdb.fullname" . }}-django
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: django
 spec:
   replicas: {{ .Values.django.replicas }}
   selector:
     matchLabels:
-      {{- include "npdbchart.selectorLabels" . | nindent 6 }}
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: django
   template:
     metadata:
       labels:
-        {{- include "npdbchart.selectorLabels" . | nindent 8 }}
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: django
     spec:
       {{- if .Values.scheduling.excludeNode }}
@@ -31,7 +31,7 @@ spec:
       {{- end }}
       initContainers:
       - name: wait-for-database
-        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
         imagePullPolicy: {{ .Values.images.django.pullPolicy }}
         command:
         - python3
@@ -54,23 +54,23 @@ spec:
                   time.sleep(2)
         env:
         - name: POSTGRES_HOST_W
-          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdbchart.fullname" . }}-pgbouncer{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdb.fullname" . }}-pgbouncer{{ else }}{{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}{{ end }}
         - name: POSTGRES_PORT_W
-          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdbchart.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}{{ end }}
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}{{ end }}
       {{- if .Values.django.migrations.enabled }}
       - name: django-migrations
-        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
         imagePullPolicy: {{ .Values.images.django.pullPolicy }}
         command:
         - /bin/sh
         - -ec
         - python3 manage.py makemigrations cdb_rest && python3 manage.py migrate cdb_rest --noinput
         env:
-          {{- include "npdbchart.djangoDatabaseEnv" . | nindent 8 }}
+          {{- include "npdb.djangoDatabaseEnv" . | nindent 8 }}
       {{- end }}
       containers:
       - name: django
-        image: {{ include "npdbchart.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
         imagePullPolicy: {{ .Values.images.django.pullPolicy }}
         ports:
         - containerPort: 8000
@@ -90,7 +90,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
         env:
-          {{- include "npdbchart.djangoDatabaseEnv" . | nindent 8 }}
+          {{- include "npdb.djangoDatabaseEnv" . | nindent 8 }}
         - name: CDB_IOV_MODE
           value: {{ .Values.cdb.iovMode | quote }}
         - name: PERMISSION_PLUGIN_CLASS
@@ -112,7 +112,7 @@ spec:
           mountPath: /var/log
       {{- if .Values.promtail.enabled }}
       - name: promtail
-        image: {{ include "npdbchart.externalImage" .Values.images.promtail | quote }}
+        image: {{ include "npdb.externalImage" .Values.images.promtail | quote }}
         imagePullPolicy: {{ .Values.images.promtail.pullPolicy }}
         args:
           - "-config.file=/etc/promtail/promtail-config.yaml"
@@ -136,13 +136,13 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{ include "npdbchart.fullname" . }}-django
+  name: {{ include "npdb.fullname" . }}-django
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: django
 spec:
   selector:
-    {{- include "npdbchart.selectorLabels" . | nindent 4 }}
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: django
   ports:
     - name: "tcp-8000"

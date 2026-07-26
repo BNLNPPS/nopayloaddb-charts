@@ -1,12 +1,12 @@
-name: Publish Belle II HSF Helm chart
+name: Publish NPDB Helm chart
 
 on:
   push:
     branches:
       - main
     paths:
-      - npdbchart_belle2_hsf_k8s/**
-      - .github/workflows/publish-npdbchart-belle2-hsf-k8s.yml
+      - npdb/**
+      - .github/workflows/publish-npdb.yml
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-npdbchart-belle2-hsf-k8s
+  group: publish-npdb
   cancel-in-progress: false
 
 jobs:
@@ -29,13 +29,13 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Download chart dependencies
-        run: helm dependency build ./npdbchart_belle2_hsf_k8s --skip-refresh
+        run: helm dependency build ./npdb --skip-refresh
 
       - name: Lint chart
-        run: helm lint ./npdbchart_belle2_hsf_k8s
+        run: helm lint ./npdb
 
       - name: Package chart
-        run: helm package ./npdbchart_belle2_hsf_k8s --destination ./dist
+        run: helm package ./npdb --destination ./dist
 
       - name: Log in to GitHub Container Registry
         env:

@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "npdbchart.payloadClaimName" . }}
+  name: {{ include "npdb.payloadClaimName" . }}
   labels:
-    {{- include "npdbchart.labels" . | nindent 4 }}
+    {{- include "npdb.labels" . | nindent 4 }}
     app.kubernetes.io/component: payload-storage
 spec:
   accessModes:
