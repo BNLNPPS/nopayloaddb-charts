@@ -12,6 +12,11 @@ spec:
   namespaceSelector:
     matchNames:
       - ${NAMESPACE}
+  # Promote the service's postgres-role label onto every scraped series (as
+  # postgres_role) so dashboards can separate primary from replica -- the
+  # Cluster Health replication-lag panel is meaningless without it.
+  targetLabels:
+    - postgres-role
   endpoints:
     - port: metrics
       path: /metrics

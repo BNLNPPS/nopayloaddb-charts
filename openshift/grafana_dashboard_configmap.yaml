@@ -47,6 +47,297 @@ data:
           "targets": [
             {"refId": "A", "expr": "topk(10, pg_stat_statements_shared_blks_read)", "legendFormat": "{{queryid}}"}
           ]
+        },
+        {
+          "id": 4,
+          "type": "bargauge",
+          "title": "Top 10 by Combined Slow + I/O Score",
+          "description": "The proposal's combined ranking: mean_exec_time and total_blks_read together, so an I/O-heavy query that still finishes quickly is not hidden behind a purely latency-ranked list.",
+          "gridPos": {"h": 9, "w": 24, "x": 0, "y": 17},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "topk(10, pg_stat_statements_mean_exec_time + pg_stat_statements_shared_blks_read)", "legendFormat": "{{queryid}}"}
+          ]
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-postgres-buffer-health
+  namespace: ${NAMESPACE}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: postgres-dashboards
+data:
+  postgres-buffer-health.json: |
+    {
+      "title": "Postgres Buffer Health",
+      "uid": "postgres-buffer-health",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "tags": ["postgres", "phase2"],
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Buffer Hit Ratio",
+          "description": "blks_hit / (blks_hit + blks_read). Sustained values below 95% are what escalate shared_buffers in the dynamic parameter tuner.",
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (postgres_role) (rate(pg_stat_database_blks_hit[5m])) / clamp_min(sum by (postgres_role) (rate(pg_stat_database_blks_hit[5m]) + rate(pg_stat_database_blks_read[5m])), 1)",
+              "legendFormat": "{{postgres_role}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 0.95}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Current Hit Ratio",
+          "gridPos": {"h": 6, "w": 8, "x": 0, "y": 10},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(rate(pg_stat_database_blks_hit[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit[5m]) + rate(pg_stat_database_blks_read[5m])), 1)",
+              "legendFormat": "hit ratio"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 0.95}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Blocks Read From Disk",
+          "gridPos": {"h": 6, "w": 16, "x": 8, "y": 10},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "sum by (datname) (rate(pg_stat_database_blks_read[5m]))", "legendFormat": "{{datname}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-postgres-cluster-health
+  namespace: ${NAMESPACE}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: postgres-dashboards
+data:
+  postgres-cluster-health.json: |
+    {
+      "title": "Postgres Cluster Health",
+      "uid": "postgres-cluster-health",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "tags": ["postgres", "phase2"],
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Replication Lag (bytes behind primary)",
+          "description": "Reported by the primary from pg_stat_replication. A steadily climbing value means the replica is falling behind and the EXPLAIN collector is planning against increasingly stale data.",
+          "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "pg_stat_replication_pg_wal_lsn_diff", "legendFormat": "{{application_name}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Active Lock Waits",
+          "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "sum by (mode) (pg_locks_count)", "legendFormat": "{{mode}}"}
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Checkpoint Frequency",
+          "description": "Requested checkpoints outpacing timed ones means checkpoint_segments/max_wal_size is too small for the bulk-insert workload.",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 9},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "rate(pg_stat_bgwriter_checkpoints_timed_total[15m])", "legendFormat": "timed"},
+            {"refId": "B", "expr": "rate(pg_stat_bgwriter_checkpoints_req_total[15m])", "legendFormat": "requested"}
+          ]
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Connection Pool Utilization",
+          "description": "Backends in use against max_connections. PgBouncer fronts these, so saturation here means the pool's server-side capacity is exhausted.",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 9},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (postgres_role) (pg_stat_activity_count) / clamp_min(max by (postgres_role) (pg_settings_max_connections), 1)",
+              "legendFormat": "{{postgres_role}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 0.75},
+                  {"color": "red", "value": 0.9}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Instances Up",
+          "gridPos": {"h": 5, "w": 24, "x": 0, "y": 17},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "sum by (postgres_role) (pg_up)", "legendFormat": "{{postgres_role}}"}
+          ]
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-payloadiov-vacuum-freshness
+  namespace: ${NAMESPACE}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: postgres-dashboards
+data:
+  payloadiov-vacuum-freshness.json: |
+    {
+      "title": "PayloadIOV Vacuum Freshness",
+      "uid": "payloadiov-vacuum-freshness",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "1m",
+      "time": {"from": "now-24h", "to": "now"},
+      "tags": ["postgres", "phase2", "payloadiov"],
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "PayloadIOV Dead Tuple Ratio",
+          "description": "n_dead_tup / n_live_tup. Rule R11 fires above 5%; the tuner then proposes lowering autovacuum_vacuum_scale_factor to 0.05.",
+          "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "pg_stat_user_tables_n_dead_tup{relname=\"PayloadIOV\"} / clamp_min(pg_stat_user_tables_n_live_tup{relname=\"PayloadIOV\"}, 1)",
+              "legendFormat": "dead/live ratio"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 0.05}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "PayloadIOV Live vs Dead Tuples",
+          "description": "Bulk inserts after each detector run are the main vacuum pressure point on this table.",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 9},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {"refId": "A", "expr": "pg_stat_user_tables_n_live_tup{relname=\"PayloadIOV\"}", "legendFormat": "live"},
+            {"refId": "B", "expr": "pg_stat_user_tables_n_dead_tup{relname=\"PayloadIOV\"}", "legendFormat": "dead"}
+          ]
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Time Since Last Autovacuum",
+          "description": "Stale statistics here are the direct cause of rule R6 (covering_idx bypassed by a Seq Scan).",
+          "gridPos": {"h": 8, "w": 6, "x": 12, "y": 9},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "time() - pg_stat_user_tables_last_autovacuum{relname=\"PayloadIOV\"}",
+              "legendFormat": "since autovacuum"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Time Since Last Autoanalyze",
+          "gridPos": {"h": 8, "w": 6, "x": 18, "y": 9},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "time() - pg_stat_user_tables_last_autoanalyze{relname=\"PayloadIOV\"}",
+              "legendFormat": "since autoanalyze"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
         }
       ]
     }
