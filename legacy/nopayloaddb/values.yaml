@@ -18,3 +18,13 @@ django_docker_image: image
 pgbouncer_docker_image: image
 django_docker_image_tag: tag
 pgbouncer_docker_image_tag: tag
+
+# EXPLAIN collector cron job
+explain_collector:
+  enabled: false
+  schedule: "*/1 * * * *"
+  db_alias: read_db_1
+  # If empty, django_docker_image is used
+  image: ""
+  # Optional dedicated read replica host; falls back to dbhost when unset
+  read_host: ""
