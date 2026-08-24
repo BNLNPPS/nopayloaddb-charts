@@ -1,3 +1,17 @@
+# Deploy with:
+#   NAMESPACE=belle2-cdb \
+#     envsubst '${NAMESPACE}' \
+#     < openshift/statefulset_psql_replica.yaml | kubectl apply -f -
+#
+# The quoted variable list is REQUIRED. ${NAMESPACE} is the only deploy-time
+# placeholder here; ${POSTGRES_USER}, ${POSTGRES_PASSWORD} and $PGDATA in the seed
+# init container are RUNTIME shell variables read from the container env. A bare
+# `envsubst` blanks all three, producing `pg_basebackup -U "" -D ""`, which fails
+# and leaves the replica stuck in Init.
+#
+# Verify before applying:
+#   ... | grep 'pg_basebackup' -A3   # -U and -D must still show $VAR references
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -51,7 +65,7 @@ spec:
         app: b2testpsql-replica
     spec:
       securityContext:
-        runAsNonRoot: false
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       volumes:
@@ -62,25 +76,33 @@ spec:
             name: promtail-config
       initContainers:
         - name: seed-from-primary
-          image: postgres:15
+          image: postgres:15.9
           command:
             - /bin/bash
             - -ec
             - |
-              if [ -s /var/lib/postgresql/data/PG_VERSION ]; then
+              if [ -s "$PGDATA/PG_VERSION" ]; then
                 exit 0
               fi
-              rm -rf /var/lib/postgresql/data/*
+              # Only ever touch the subdirectory: the volume root is owned by root
+              # under OpenShift's arbitrary UID and may contain lost+found.
+              rm -rf "$PGDATA"
+              # -R is required: it writes primary_conninfo into postgresql.auto.conf
+              # and creates standby.signal. Without it the standby starts, accepts
+              # read-only connections and looks healthy, but never connects to the
+              # primary and silently stays frozen at the seed LSN.
               PGPASSWORD="${POSTGRES_PASSWORD}" pg_basebackup \
                 -h b2testpsql-primary.${NAMESPACE}.svc.cluster.local \
                 -U "${POSTGRES_USER}" \
-                -D /var/lib/postgresql/data \
+                -D "$PGDATA" \
+                -R \
                 --wal-method=stream \
                 --checkpoint=fast
 
-              touch /var/lib/postgresql/data/standby.signal
-              chmod 700 /var/lib/postgresql/data
+              chmod 700 "$PGDATA"
           env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
@@ -96,7 +118,7 @@ spec:
               mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
-          image: postgres:15
+          image: postgres:15.9
           args:
             - "-c"
             - "log_min_duration_statement=500"
@@ -110,6 +132,10 @@ spec:
             - containerPort: 5432
               name: postgres
           env:
+            # Must match the seed init container and the primary. See the note in
+            # deployment_psql_server.yaml for why this cannot be the mount root.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_DB
               value: conditions
             - name: POSTGRES_USER

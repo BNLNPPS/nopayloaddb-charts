@@ -1,12 +1,16 @@
 # Deploy with:
-#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb \
-#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
-#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+#   INSTANCE_NAME=b2testpsql-primary NAMESPACE=belle2-cdb POSTGRESQL_DATABASE=conditions \
+#     envsubst '${INSTANCE_NAME} ${NAMESPACE} ${POSTGRESQL_DATABASE}' \
+#     < openshift/deployment_psql_server.yaml | kubectl apply -f -
 #
-# For persistent storage, uncomment the PVC block below and add PVC_NAME:
-#   INSTANCE_NAME=kek-psql NAMESPACE=belle2-cdb PVC_NAME=my-pvc \
-#     POSTGRESQL_DATABASE=mydb POSTGRESQL_USER=myuser POSTGRESQL_PASSWORD=mypass \
-#     envsubst < openshift/deployment_psql_server.yaml | kubectl apply -f -
+# The quoted variable list is REQUIRED, not optional. A bare `envsubst` substitutes
+# EVERY $VAR it sees, including the shell variables inside the postStart hook below
+# ($PGDATA_DIR, $HBA_FILE, $PID) — it replaces them with empty strings and silently
+# turns the hook into a no-op, so the replication pg_hba rules never get added.
+# Listing the variables explicitly leaves every other $VAR untouched.
+#
+# Verify before applying:
+#   ... | grep HBA_FILE     # must still read "$PGDATA_DIR/pg_hba.conf"
 ---
 apiVersion: v1
 kind: Service
@@ -22,8 +26,11 @@ spec:
     - port: 9187
       targetPort: 9187
       name: metrics
+  # Must match the pod template labels below, which are fixed. Do NOT template this
+  # on INSTANCE_NAME: a different INSTANCE_NAME would leave the Service with no
+  # endpoints and the replica unable to reach the primary.
   selector:
-    app: ${INSTANCE_NAME}
+    app: b2testpsql-primary
 ---
 apiVersion: v1
 kind: Service
@@ -42,7 +49,7 @@ spec:
       targetPort: 9187
       name: metrics
   selector:
-    app: ${INSTANCE_NAME}
+    app: b2testpsql-primary
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -61,7 +68,9 @@ spec:
         app: b2testpsql-primary
     spec:
       securityContext:
-        runAsNonRoot: false
+        # OpenShift assigns the UID from the namespace range regardless; false never
+        # granted root, and it trips Pod Security Admission's "restricted" profile.
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       volumes:
@@ -81,8 +90,9 @@ spec:
                   - -ec
                   - |
                     set +e
-                    HBA_FILE=/var/lib/postgresql/data/pg_hba.conf
-                    for i in $(seq 1 30); do
+                    PGDATA_DIR="${PGDATA:-/var/lib/postgresql/data/pgdata}"
+                    HBA_FILE="$PGDATA_DIR/pg_hba.conf"
+                    for i in $(seq 1 60); do
                       [ -f "$HBA_FILE" ] && break
                       sleep 1
                     done
@@ -91,8 +101,8 @@ spec:
                         echo 'host replication all 0.0.0.0/0 scram-sha-256' >> "$HBA_FILE"
                       grep -Eq '^host[[:space:]]+replication[[:space:]]+all[[:space:]]+::/0[[:space:]]+scram-sha-256$' "$HBA_FILE" || \
                         echo 'host replication all ::/0 scram-sha-256' >> "$HBA_FILE"
-                      if [ -s /var/lib/postgresql/data/postmaster.pid ]; then
-                        PID=$(head -n1 /var/lib/postgresql/data/postmaster.pid)
+                      if [ -s "$PGDATA_DIR/postmaster.pid" ]; then
+                        PID=$(head -n1 "$PGDATA_DIR/postmaster.pid")
                         kill -HUP "$PID" 2>/dev/null
                       fi
                     fi
@@ -115,6 +125,12 @@ spec:
             - containerPort: 5432
               name: postgres
           env:
+            # PGDATA must be a SUBDIRECTORY of the mounted volume. OpenShift runs the
+            # container with an arbitrary UID and the PVC mount point stays owned by
+            # root, so initdb cannot chmod it to 0700 and aborts. A subdirectory is
+            # created by the runtime UID itself, so the chmod succeeds.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_DB
               value: "${POSTGRESQL_DATABASE}"
             - name: POSTGRES_USER
