@@ -1,0 +1,231 @@
+{{- if eq .Values.backend.type "java" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdb.fullname" . }}-java
+  labels:
+    {{- include "npdb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+spec:
+  replicas: {{ .Values.java.replicas.writer }}
+  selector:
+    matchLabels:
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: java
+  template:
+    metadata:
+      labels:
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: java
+    spec:
+      {{- if .Values.scheduling.excludeNode }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - {{ .Values.scheduling.excludeNode }}
+      {{- end }}
+      securityContext:
+        runAsUser: 50001
+        runAsGroup: 50001
+        fsGroup: 50001
+      containers:
+      - name: java
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
+        imagePullPolicy: {{ .Values.images.java.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+              - echo
+              - ready
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 1
+        env:
+        - name: PGSERVER
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}
+        - name: PGPORT
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}
+        - name: B2S_APP_LOGGING_LEVEL
+          value: INFO
+        - name: B2S_SERVER_LOGGING_LEVEL
+          value: FINEST
+        - name: B2S_HAS_EXTERNAL_SERVICE_CACHE
+          value: "false"
+        - name: B2S_RESOURCE_CACHE_ENABLED
+          value: "false"
+        - name: B2S_JWT_AUTH
+          value: "true"
+        - name: B2S_AUTH_SECRET
+          value: {{ .Values.cdb.jwtSecret | quote }}
+        - name: B2S_SERVICES_PORT
+          value: "8080"
+        - name: B2S_SWAGGER_HOST_PORT
+          value: "8081"
+        - name: B2S_QUERY_CACHE_MAX_SIZE
+          value: "100"
+        - name: B2S_INITIAL_MEM
+          value: "2048"
+        - name: B2S_MAX_MEM
+          value: "5096"
+        - name: B2S_PAYLOAD_SERVER
+          value: {{ .Values.java.payloadServerAlias | quote }}
+        - name: B2S_PAYLOAD_SERVER_SECURE
+          value: "true"
+        - name: B2S_PAYLOAD_SERVER_ROOT_PATH
+          value: "/srv"
+        volumeMounts:
+        - mountPath: /srv
+          name: payloadfs
+          {{- with .Values.storage.payload.subPath }}
+          subPath: {{ . }}
+          {{- end }}
+        resources:
+          requests:
+            cpu: "4"
+            ephemeral-storage: "200Mi"
+      volumes:
+        - name: payloadfs
+          persistentVolumeClaim:
+            claimName: {{ include "npdb.payloadClaimName" . }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdb.fullname" . }}-java-replica
+  labels:
+    {{- include "npdb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java-replica
+spec:
+  replicas: {{ .Values.java.replicas.reader }}
+  selector:
+    matchLabels:
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: java-replica
+  template:
+    metadata:
+      labels:
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: java-replica
+    spec:
+      {{- if .Values.scheduling.excludeNode }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - {{ .Values.scheduling.excludeNode }}
+      {{- end }}
+      securityContext:
+        runAsUser: 50001
+        runAsGroup: 50001
+        fsGroup: 50001
+      containers:
+      - name: java-replica
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "java" "image" .Values.images.java) | quote }}
+        imagePullPolicy: {{ .Values.images.java.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+              - echo
+              - ready
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 1
+        env:
+        - name: PGSERVER
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "reader1" "field" "host") }}
+        - name: PGPORT
+          value: {{ include "npdb.databaseValue" (dict "root" . "connection" "reader1" "field" "port") | quote }}
+        - name: B2S_APP_LOGGING_LEVEL
+          value: INFO
+        - name: B2S_SERVER_LOGGING_LEVEL
+          value: FINEST
+        - name: B2S_HAS_EXTERNAL_SERVICE_CACHE
+          value: "false"
+        - name: B2S_RESOURCE_CACHE_ENABLED
+          value: "false"
+        - name: B2S_JWT_AUTH
+          value: "true"
+        - name: B2S_AUTH_SECRET
+          value: {{ .Values.cdb.jwtSecret | quote }}
+        - name: B2S_SERVICES_PORT
+          value: "8080"
+        - name: B2S_SWAGGER_HOST_PORT
+          value: "8081"
+        - name: B2S_QUERY_CACHE_MAX_SIZE
+          value: "100"
+        - name: B2S_INITIAL_MEM
+          value: "2048"
+        - name: B2S_MAX_MEM
+          value: "5096"
+        - name: B2S_PAYLOAD_SERVER
+          value: {{ .Values.java.payloadServerAlias | quote }}
+        - name: B2S_PAYLOAD_SERVER_SECURE
+          value: "true"
+        - name: B2S_PAYLOAD_SERVER_ROOT_PATH
+          value: "/srv"
+        volumeMounts:
+        - mountPath: /srv
+          name: payloadfs
+          {{- with .Values.storage.payload.subPath }}
+          subPath: {{ . }}
+          {{- end }}
+        resources:
+          requests:
+            cpu: "4"
+            ephemeral-storage: "200Mi"
+      volumes:
+        - name: payloadfs
+          persistentVolumeClaim:
+            claimName: {{ include "npdb.payloadClaimName" . }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdb.fullname" . }}-java
+  labels:
+    {{- include "npdb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+spec:
+  selector:
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: java
+  ports:
+    - name: "tcp-8080"
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdb.fullname" . }}-java-replica
+  labels:
+    {{- include "npdb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: java-replica
+spec:
+  selector:
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: java-replica
+  ports:
+    - name: "tcp-8080"
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+{{- end }}
