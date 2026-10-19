@@ -1,0 +1,153 @@
+{{- if eq .Values.backend.type "django" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "npdb.fullname" . }}-django
+  labels:
+    {{- include "npdb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  replicas: {{ .Values.django.replicas }}
+  selector:
+    matchLabels:
+      {{- include "npdb.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: django
+  template:
+    metadata:
+      labels:
+        {{- include "npdb.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: django
+    spec:
+      {{- if .Values.scheduling.excludeNode }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - {{ .Values.scheduling.excludeNode }}
+      {{- end }}
+      initContainers:
+      - name: wait-for-database
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
+        imagePullPolicy: {{ .Values.images.django.pullPolicy }}
+        command:
+        - python3
+        - -c
+        - |
+          import os
+          import socket
+          import time
+
+          host = os.environ["POSTGRES_HOST_W"]
+          port = int(os.environ["POSTGRES_PORT_W"])
+
+          while True:
+              try:
+                  with socket.create_connection((host, port), timeout=2):
+                      print(f"Database is accepting connections at {host}:{port}")
+                      break
+              except OSError as error:
+                  print(f"Waiting for database at {host}:{port}: {error}", flush=True)
+                  time.sleep(2)
+        env:
+        - name: POSTGRES_HOST_W
+          value: {{ if .Values.pgbouncer.enabled }}{{ include "npdb.fullname" . }}-pgbouncer{{ else }}{{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "host") }}{{ end }}
+        - name: POSTGRES_PORT_W
+          value: {{ if .Values.pgbouncer.enabled }}"6432"{{ else }}{{ include "npdb.databaseValue" (dict "root" . "connection" "writer" "field" "port") | quote }}{{ end }}
+      {{- if .Values.django.migrations.enabled }}
+      - name: django-migrations
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
+        imagePullPolicy: {{ .Values.images.django.pullPolicy }}
+        command:
+        - /bin/sh
+        - -ec
+        - python3 manage.py makemigrations cdb_rest && python3 manage.py migrate cdb_rest --noinput
+        env:
+          {{- include "npdb.djangoDatabaseEnv" . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: django
+        image: {{ include "npdb.workloadImage" (dict "root" . "component" "django" "image" .Values.images.django) | quote }}
+        imagePullPolicy: {{ .Values.images.django.pullPolicy }}
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /api/cdb_rest/globalTags
+            port: 8000
+          failureThreshold: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /api/cdb_rest/globalTags
+            port: 8000
+          failureThreshold: 3
+          periodSeconds: 10
+          timeoutSeconds: 5
+        env:
+          {{- include "npdb.djangoDatabaseEnv" . | nindent 8 }}
+        - name: CDB_IOV_MODE
+          value: {{ .Values.cdb.iovMode | quote }}
+        - name: PERMISSION_PLUGIN_CLASS
+          value: {{ .Values.cdb.permissionPluginClass | quote }}
+        - name: CDB_AUTH_CLASS
+          value: {{ .Values.cdb.authClass | quote }}
+        {{- if .Values.cdb.jwtSecret }}
+        - name: JWT_SECRET
+          value: {{ .Values.cdb.jwtSecret | quote }}
+        {{- end }}
+        {{- if .Values.cdb.payloadBaseUrl }}
+        - name: CDB_PAYLOAD_BASE_URL
+          value: {{ .Values.cdb.payloadBaseUrl | quote }}
+        {{- end }}
+        volumeMounts:
+        - name: run
+          mountPath: /var/run
+        - name: varlog
+          mountPath: /var/log
+      {{- if .Values.promtail.enabled }}
+      - name: promtail
+        image: {{ include "npdb.externalImage" .Values.images.promtail | quote }}
+        imagePullPolicy: {{ .Values.images.promtail.pullPolicy }}
+        args:
+          - "-config.file=/etc/promtail/promtail-config.yaml"
+        volumeMounts:
+          - name: varlog
+            mountPath: /var/log
+          - name: promtail-config
+            mountPath: /etc/promtail
+      {{- end }}
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: varlog
+          emptyDir: {}
+        {{- if .Values.promtail.enabled }}
+        - name: promtail-config
+          configMap:
+            name: {{ .Values.promtail.configMapName }}
+        {{- end }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "npdb.fullname" . }}-django
+  labels:
+    {{- include "npdb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+spec:
+  selector:
+    {{- include "npdb.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: django
+  ports:
+    - name: "tcp-8000"
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+{{- end }}
